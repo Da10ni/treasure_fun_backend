@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
-import stakeRoutes from "./routes/stakes.js";
+// import stakeRoutes from "./routes/stakes.js";
 
 // Load environment variables
 dotenv.config();
@@ -63,7 +63,7 @@ mongoose.connection.on("error", (error) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/stakes", stakeRoutes);
+//app.use("/api/stakes", stakeRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
@@ -91,16 +91,16 @@ app.get("/api", (req, res) => {
         logout: "POST /api/auth/logout",
         verifyToken: "GET /api/auth/verify-token",
       },
-      stakes: {
-        createStake: "POST /api/stakes",
-        getAllStakes: "GET /api/stakes",
-        getStakeById: "GET /api/stakes/:id",
-        updateStake: "PUT /api/stakes/:id",
-        deleteStake: "DELETE /api/stakes/:id",
-        myStakes: "GET /api/stakes/my-stakes",
-        userStakes: "GET /api/stakes/user/:userId",
-        stakeStats: "GET /api/stakes/stats",
-      },
+      // stakes: {
+      //   createStake: "POST /api/stakes",
+      //   getAllStakes: "GET /api/stakes",
+      //   getStakeById: "GET /api/stakes/:id",
+      //   updateStake: "PUT /api/stakes/:id",
+      //   deleteStake: "DELETE /api/stakes/:id",
+      //   myStakes: "GET /api/stakes/my-stakes",
+      //   userStakes: "GET /api/stakes/user/:userId",
+      //   stakeStats: "GET /api/stakes/stats",
+      // },
     },
   });
 });
@@ -184,5 +184,5 @@ app.listen(PORT, () => {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`📡 Health check: http://localhost:${PORT}/api/health`);
   console.log(`📖 API info: http://localhost:${PORT}/api`);
-  console.log(`🎯 Stake API: http://localhost:${PORT}/api/stakes`);
+  //console.log(`🎯 Stake API: http://localhost:${PORT}/api/stakes`);
 });
