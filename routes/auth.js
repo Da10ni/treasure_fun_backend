@@ -6,7 +6,7 @@ import {
   getProfile,
   logout,
   updateProfile,
-  validateReferralCode,      //
+  validateReferralCode,      
   getUserReferrals          
 } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js'; 
