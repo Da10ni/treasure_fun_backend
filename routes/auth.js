@@ -7,7 +7,9 @@ import {
   logout,
   updateProfile,
   validateReferralCode,      
-  getUserReferrals          
+  getUserReferrals, 
+  getAllUsers,
+  toggleUserStatus
 } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js'; 
 
@@ -24,5 +26,7 @@ router.put('/profile', authenticateToken, updateProfile);
 // NEW: Referral system routes
 router.get('/referral/validate/:code', validateReferralCode);
 router.get('/referrals', authenticateToken, getUserReferrals);
+router.get('/users', getAllUsers)
+router.patch('/users/:userId/toggle-status', authenticateToken, toggleUserStatus);
 
 export default router;
