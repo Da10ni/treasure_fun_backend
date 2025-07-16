@@ -1,0 +1,633 @@
+import User, { ReferralCode } from "../models/User.js";
+import jwt from "jsonwebtoken";
+import { sendReferralCodeEmail } from "../services/emailService.js";
+
+// Generate random email verification code (6-digit)
+const generateEmailVerificationCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+};
+
+// Generate unique referral code for users (8-character alphanumeric)
+const generateUserReferralCode = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
+// Generate unique referral code with retry logic
+const generateUniqueReferralCode = async (maxRetries = 5) => {
+  let code;
+  let attempts = 0;
+  
+  do {
+    code = generateUserReferralCode();
+    attempts++;
+    
+    if (attempts > maxRetries) {
+      throw new Error('Unable to generate unique referral code');
+    }
+    
+    const existingUser = await User.findByReferralCode(code);
+    if (!existingUser) {
+      return code;
+    }
+  } while (attempts <= maxRetries);
+};
+
+// Validation functions
+const validateSignupInput = (
+  username,
+  email,
+  password,
+  confirmPassword,
+  mobileNo,
+  emailVerificationCode,
+  referredByCode // Optional referral code
+) => {
+  const errors = [];
+
+  // Username validation
+  if (!username || !username.trim()) {
+    errors.push({ field: "username", message: "Username is required" });
+  } else if (username.length < 3 || username.length > 20) {
+    errors.push({
+      field: "username",
+      message: "Username must be between 3 and 20 characters",
+    });
+  } else if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    errors.push({
+      field: "username",
+      message: "Username can only contain letters, numbers, and underscores",
+    });
+  }
+
+  // Email validation
+  if (!email || !email.trim()) {
+    errors.push({ field: "email", message: "Email is required" });
+  } else if (!/\S+@\S+\.\S+/.test(email)) {
+    errors.push({
+      field: "email",
+      message: "Please enter a valid email address",
+    });
+  }
+
+  // Password validation
+  if (!password || !password.trim()) {
+    errors.push({ field: "password", message: "Password is required" });
+  } else if (password.length < 6) {
+    errors.push({
+      field: "password",
+      message: "Password must be at least 6 characters",
+    });
+  }
+
+  // Confirm password validation
+  if (!confirmPassword || !confirmPassword.trim()) {
+    errors.push({
+      field: "confirmPassword",
+      message: "Confirm password is required",
+    });
+  } else if (password !== confirmPassword) {
+    errors.push({
+      field: "confirmPassword",
+      message: "Passwords do not match",
+    });
+  }
+
+  // Mobile number validation
+  if (!mobileNo || !mobileNo.trim()) {
+    errors.push({ field: "mobileNo", message: "Mobile number is required" });
+  } else if (!/^[0-9]{10,15}$/.test(mobileNo.trim())) {
+    errors.push({
+      field: "mobileNo",
+      message: "Please enter a valid mobile number (10-15 digits)",
+    });
+  }
+
+  // Email verification code validation
+  if (!emailVerificationCode || !emailVerificationCode.trim()) {
+    errors.push({
+      field: "emailVerificationCode",
+      message: "Email verification code is required",
+    });
+  } else if (!/^[0-9]{6}$/.test(emailVerificationCode.trim())) {
+    errors.push({
+      field: "emailVerificationCode",
+      message: "Email verification code must be 6 digits",
+    });
+  }
+
+  // Referral code validation (optional)
+  if (referredByCode && referredByCode.trim()) {
+    if (!/^[A-Z0-9]{8}$/.test(referredByCode.trim())) {
+      errors.push({
+        field: "referredByCode",
+        message: "Referral code must be 8 characters (letters and numbers)",
+      });
+    }
+  }
+
+  return errors;
+};
+
+const validateLoginInput = (username, password) => {
+  const errors = [];
+
+  if (!username || !username.trim()) {
+    errors.push({ field: "username", message: "Username is required" });
+  }
+
+  if (!password || !password.trim()) {
+    errors.push({ field: "password", message: "Password is required" });
+  }
+
+  return errors;
+};
+
+// Generate JWT token
+const generateToken = (userId) => {
+  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+    expiresIn: "24h",
+  });
+};
+
+// Generate and send email verification code
+export const generateReferralCodeForEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    console.log("Generate email verification code request for:", email);
+
+    // Validate email
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address",
+      });
+    }
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already registered",
+      });
+    }
+
+    // Generate email verification code
+    const code = generateEmailVerificationCode();
+    console.log("Generated email verification code:", code);
+
+    // Delete any existing verification code for this email
+    await ReferralCode.deleteMany({ email: email.toLowerCase() });
+
+    // Save new verification code
+    const verificationCode = new ReferralCode({
+      email: email.toLowerCase(),
+      code: code,
+    });
+
+    await verificationCode.save();
+    console.log("Email verification code saved to database");
+
+    // Send email
+    console.log("Attempting to send email...");
+    const emailResult = await sendReferralCodeEmail(email, code);
+    console.log("Email result:", emailResult);
+
+    if (emailResult.success) {
+      const response = {
+        success: true,
+        message: emailResult.simulated
+          ? `Email verification code generated.`
+          : `Verification code sent to ${email}. Please check your email.`,
+      };
+
+      // Include code in development for debugging
+      if (process.env.NODE_ENV === "development") {
+        response.devCode = code;
+        response.debugInfo = emailResult;
+      }
+
+      res.status(200).json(response);
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Failed to send verification code. Please try again.",
+        ...(process.env.NODE_ENV === "development" && {
+          debugInfo: emailResult,
+        }),
+      });
+    }
+  } catch (error) {
+    console.error("Generate email verification code error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send verification code",
+      ...(process.env.NODE_ENV === "development" && { error: error.message }),
+    });
+  }
+};
+
+// Sign up new user
+export const signup = async (req, res) => {
+  try {
+    const {
+      username,
+      email,
+      password,
+      confirmPassword,
+      mobileNo,
+      emailVerificationCode,
+      referredByCode, // Optional referral code
+    } = req.body;
+
+    // Validate input
+    const errors = validateSignupInput(
+      username,
+      email,
+      password,
+      confirmPassword,
+      mobileNo,
+      emailVerificationCode,
+      referredByCode
+    );
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors,
+      });
+    }
+
+    // Verify email verification code
+    const validVerificationCode = await ReferralCode.findOne({
+      email: email.toLowerCase(),
+      code: emailVerificationCode.trim(),
+    });
+
+    if (!validVerificationCode) {
+      return res.status(400).json({
+        success: false,
+        message: "Email verification code is invalid or expired",
+      });
+    }
+
+    // Validate referral code if provided
+    let referringUser = null;
+    if (referredByCode && referredByCode.trim()) {
+      referringUser = await User.findByReferralCode(referredByCode.trim());
+      if (!referringUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid referral code",
+        });
+      }
+    }
+
+    // Check if user already exists with same username
+    const existingUserByUsername = await User.findOne({ username });
+    if (existingUserByUsername) {
+      return res.status(409).json({
+        success: false,
+        message: "Username already exists",
+      });
+    }
+
+    // Check if user already exists with same email
+    const existingUserByEmail = await User.findOne({
+      email: email.toLowerCase(),
+    });
+    if (existingUserByEmail) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already registered",
+      });
+    }
+
+    // Check if user already exists with same mobile number
+    const existingUserByMobile = await User.findOne({ mobileNo });
+    if (existingUserByMobile) {
+      return res.status(409).json({
+        success: false,
+        message: "Mobile number already registered",
+      });
+    }
+
+    // Generate unique referral code for new user
+    const userReferralCode = await generateUniqueReferralCode();
+
+    // Create new user
+    const user = new User({
+      username: username.trim(),
+      email: email.toLowerCase(),
+      password,
+      mobileNo: mobileNo.trim(),
+      myReferralCode: userReferralCode,
+      referredByCode: referredByCode ? referredByCode.trim() : null,
+      referredByUser: referringUser ? referringUser._id : null,
+    });
+
+    await user.save();
+
+    // Update referring user if exists
+    if (referringUser) {
+      await User.findByIdAndUpdate(referringUser._id, {
+        $push: { referredUsers: user._id },
+        $inc: { referralCount: 1 }
+      });
+    }
+
+    // Delete the used email verification code
+    await ReferralCode.deleteOne({ _id: validVerificationCode._id });
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      data: {
+        user: user.toJSON(),
+        token,
+      },
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// NEW: Validate referral code endpoint
+export const validateReferralCode = async (req, res) => {
+  try {
+    const { code } = req.params;
+    
+    if (!code || !/^[A-Z0-9]{8}$/.test(code)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid referral code format",
+      });
+    }
+
+    const user = await User.findByReferralCode(code).select('username myReferralCode');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid referral code",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Valid referral code",
+      data: {
+        referrer: {
+          username: user.username,
+          referralCode: user.myReferralCode
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Validate referral code error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// NEW: Get user referral information
+export const getUserReferrals = async (req, res) => {
+  try {
+    const userId = req.userId; // From auth middleware
+    
+    const user = await User.findById(userId)
+      .populate('referredUsers', 'username email createdAt')
+      .populate('referredByUser', 'username myReferralCode')
+      .select('-password');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        myReferralCode: user.myReferralCode,
+        referralCount: user.referralCount,
+        referredBy: user.referredByUser ? {
+          username: user.referredByUser.username,
+          referralCode: user.referredByUser.myReferralCode
+        } : null,
+        referredUsers: user.referredUsers
+      }
+    });
+  } catch (error) {
+    console.error("Get user referrals error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Login user (unchanged)
+export const login = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Validate input
+    const errors = validateLoginInput(username, password);
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors,
+      });
+    }
+
+    // Find user by username
+    const user = await User.findByUsername(username.trim());
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid username or password",
+      });
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: "Account is deactivated",
+      });
+    }
+
+    // Verify password
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid username or password",
+      });
+    }
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      data: {
+        user: user.toJSON(),
+        token,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      ...(process.env.NODE_ENV === "development" && { error: error.message }),
+    });
+  }
+};
+
+// Get current user profile (unchanged)
+export const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: user.toJSON(),
+      },
+    });
+  } catch (error) {
+    console.error("Profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Logout user (unchanged)
+export const logout = async (req, res) => {
+  try {
+    // Since JWT is stateless, we just send a success response
+    res.status(200).json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// Update user profile (unchanged)
+export const updateProfile = async (req, res) => {
+  try {
+    const { username, mobileNo } = req.body;
+    const userId = req.userId;
+
+    // Validate input
+    const errors = [];
+    if (username && (username.length < 3 || username.length > 20)) {
+      errors.push({
+        field: "username",
+        message: "Username must be between 3 and 20 characters",
+      });
+    }
+    if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
+      errors.push({
+        field: "username",
+        message: "Username can only contain letters, numbers, and underscores",
+      });
+    }
+    if (mobileNo && !/^[0-9]{10,15}$/.test(mobileNo)) {
+      errors.push({
+        field: "mobileNo",
+        message: "Please enter a valid mobile number (10-15 digits)",
+      });
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors,
+      });
+    }
+
+    // Check if username or mobile number already exists (excluding current user)
+    const existingUser = await User.findOne({
+      $and: [{ _id: { $ne: userId } }, { $or: [{ username }, { mobileNo }] }],
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "Username or mobile number already exists",
+      });
+    }
+
+    // Update user
+    const updateData = {};
+    if (username) updateData.username = username.trim();
+    if (mobileNo) updateData.mobileNo = mobileNo.trim();
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: {
+        user: updatedUser.toJSON(),
+      },
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};

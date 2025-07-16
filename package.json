@@ -1,0 +1,52 @@
+{
+  "name": "treasure_fun_backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed": "node scripts/seedDatabase.js",
+    "clean": "node scripts/cleanDatabase.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Da10ni/treasure_fun_backend.git"
+  },
+  "keywords": [
+    "treasure",
+    "hunt",
+    "game",
+    "backend",
+    "api",
+    "express",
+    "mongodb",
+    "jwt",
+    "authentication"
+  ],
+  "author": "Your Name",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Da10ni/treasure_fun_backend/issues"
+  },
+  "homepage": "https://github.com/Da10ni/treasure_fun_backend#readme",
+  "description": "Backend API for Treasure Hunt game with authentication, user management, and game mechanics",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^7.5.0",
+    "nodemailer": "^6.9.7",
+    "validator": "^13.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+}
