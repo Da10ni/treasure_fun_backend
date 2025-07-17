@@ -1,160 +1,13 @@
 import User, { ReferralCode } from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { sendReferralCodeEmail } from "../services/emailService.js";
-
-
-// Generate random email verification code (6-digit)
-const generateEmailVerificationCode = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
-};
-
-// Generate unique referral code for users (8-character alphanumeric)
-const generateUserReferralCode = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < 8; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-};
-
-// Generate unique referral code with retry logic
-const generateUniqueReferralCode = async (maxRetries = 5) => {
-  let code;
-  let attempts = 0;
-
-  do {
-    code = generateUserReferralCode();
-    attempts++;
-
-    if (attempts > maxRetries) {
-      throw new Error('Unable to generate unique referral code');
-    }
-
-    const existingUser = await User.findByReferralCode(code);
-    if (!existingUser) {
-      return code;
-    }
-  } while (attempts <= maxRetries);
-};
-
-// Validation functions
-const validateSignupInput = (
-  username,
-  email,
-  password,
-  confirmPassword,
-  mobileNo,
-  emailVerificationCode,
-  referredByCode // Optional referral code
-) => {
-  const errors = [];
-
-  // Username validation
-  if (!username || !username.trim()) {
-    errors.push({ field: "username", message: "Username is required" });
-  } else if (username.length < 3 || username.length > 20) {
-    errors.push({
-      field: "username",
-      message: "Username must be between 3 and 20 characters",
-    });
-  } else if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-    errors.push({
-      field: "username",
-      message: "Username can only contain letters, numbers, and underscores",
-    });
-  }
-
-  // Email validation
-  if (!email || !email.trim()) {
-    errors.push({ field: "email", message: "Email is required" });
-  } else if (!/\S+@\S+\.\S+/.test(email)) {
-    errors.push({
-      field: "email",
-      message: "Please enter a valid email address",
-    });
-  }
-
-  // Password validation
-  if (!password || !password.trim()) {
-    errors.push({ field: "password", message: "Password is required" });
-  } else if (password.length < 6) {
-    errors.push({
-      field: "password",
-      message: "Password must be at least 6 characters",
-    });
-  }
-
-  // Confirm password validation
-  if (!confirmPassword || !confirmPassword.trim()) {
-    errors.push({
-      field: "confirmPassword",
-      message: "Confirm password is required",
-    });
-  } else if (password !== confirmPassword) {
-    errors.push({
-      field: "confirmPassword",
-      message: "Passwords do not match",
-    });
-  }
-
-  // Mobile number validation
-  if (!mobileNo || !mobileNo.trim()) {
-    errors.push({ field: "mobileNo", message: "Mobile number is required" });
-  } else if (!/^[0-9]{10,15}$/.test(mobileNo.trim())) {
-    errors.push({
-      field: "mobileNo",
-      message: "Please enter a valid mobile number (10-15 digits)",
-    });
-  }
-
-  // Email verification code validation
-  if (!emailVerificationCode || !emailVerificationCode.trim()) {
-    errors.push({
-      field: "emailVerificationCode",
-      message: "Email verification code is required",
-    });
-  } else if (!/^[0-9]{6}$/.test(emailVerificationCode.trim())) {
-    errors.push({
-      field: "emailVerificationCode",
-      message: "Email verification code must be 6 digits",
-    });
-  }
-
-  // Referral code validation (optional)
-  if (referredByCode && referredByCode.trim()) {
-    if (!/^[A-Z0-9]{8}$/.test(referredByCode.trim())) {
-      errors.push({
-        field: "referredByCode",
-        message: "Referral code must be 8 characters (letters and numbers)",
-      });
-    }
-  }
-
-  return errors;
-};
-
-const validateLoginInput = (username, password) => {
-  const errors = [];
-
-  if (!username || !username.trim()) {
-    errors.push({ field: "username", message: "Username is required" });
-  }
-
-  if (!password || !password.trim()) {
-    errors.push({ field: "password", message: "Password is required" });
-  }
-
-  return errors;
-};
-
-// Generate JWT token
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, {
-    expiresIn: "24h",
-  });
-};
-
+import {
+  generateEmailVerificationCode,
+  generateToken,
+  generateUniqueReferralCode,
+  validateLoginInput,
+  validateSignupInput,
+} from "../methods/methods.js";
 // Generate and send email verification code
 export const generateReferralCodeForEmail = async (req, res) => {
   try {
@@ -346,7 +199,7 @@ export const signup = async (req, res) => {
     if (referringUser) {
       await User.findByIdAndUpdate(referringUser._id, {
         $push: { referredUsers: user._id },
-        $inc: { referralCount: 1 }
+        $inc: { referralCount: 1 },
       });
     }
 
@@ -385,7 +238,9 @@ export const validateReferralCode = async (req, res) => {
       });
     }
 
-    const user = await User.findByReferralCode(code).select('username myReferralCode');
+    const user = await User.findByReferralCode(code).select(
+      "username myReferralCode"
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -400,9 +255,9 @@ export const validateReferralCode = async (req, res) => {
       data: {
         referrer: {
           username: user.username,
-          referralCode: user.myReferralCode
-        }
-      }
+          referralCode: user.myReferralCode,
+        },
+      },
     });
   } catch (error) {
     console.error("Validate referral code error:", error);
@@ -419,9 +274,9 @@ export const getUserReferrals = async (req, res) => {
     const userId = req.userId; // From auth middleware
 
     const user = await User.findById(userId)
-      .populate('referredUsers', 'username email createdAt')
-      .populate('referredByUser', 'username myReferralCode')
-      .select('-password');
+      .populate("referredUsers", "username email createdAt")
+      .populate("referredByUser", "username myReferralCode")
+      .select("-password");
 
     if (!user) {
       return res.status(404).json({
@@ -435,12 +290,14 @@ export const getUserReferrals = async (req, res) => {
       data: {
         myReferralCode: user.myReferralCode,
         referralCount: user.referralCount,
-        referredBy: user.referredByUser ? {
-          username: user.referredByUser.username,
-          referralCode: user.referredByUser.myReferralCode
-        } : null,
-        referredUsers: user.referredUsers
-      }
+        referredBy: user.referredByUser
+          ? {
+              username: user.referredByUser.username,
+              referralCode: user.referredByUser.myReferralCode,
+            }
+          : null,
+        referredUsers: user.referredUsers,
+      },
     });
   } catch (error) {
     console.error("Get user referrals error:", error);
@@ -523,40 +380,43 @@ export const getAllUsers = async (req, res) => {
   try {
     // Fetch all users without pagination or filtering
     const users = await User.find()
-      .select('-password') // Exclude password field
-      .populate('referredByUser', 'username myReferralCode')
-      .populate('referredUsers', 'username email');
+      .select("-password") // Exclude password field
+      .populate("referredByUser", "username myReferralCode")
+      .populate("referredUsers", "username email");
 
     // Transform data to match frontend expectations
-    const transformedUsers = users.map(user => ({
+    const transformedUsers = users.map((user) => ({
       id: user._id,
       username: user.username,
       email: user.email,
-      mobileNo: user.mobileNo || '',
-      status: user.isActive ? 'active' : 'disabled',
-      joinDate: user.createdAt.toISOString().split('T')[0],
-      lastLogin: user.lastLogin ? user.lastLogin.toISOString().split('T')[0] : 'Never',
+      mobileNo: user.mobileNo || "",
+      status: user.isActive ? "active" : "disabled",
+      joinDate: user.createdAt.toISOString().split("T")[0],
+      lastLogin: user.lastLogin
+        ? user.lastLogin.toISOString().split("T")[0]
+        : "Never",
       myReferralCode: user.myReferralCode,
       referralCount: user.referredUsers.length,
-      referredBy: user.referredByUser ? {
-        username: user.referredByUser.username,
-        referralCode: user.referredByUser.myReferralCode
-      } : null
+      referredBy: user.referredByUser
+        ? {
+            username: user.referredByUser.username,
+            referralCode: user.referredByUser.myReferralCode,
+          }
+        : null,
     }));
 
     res.status(200).json({
       success: true,
       data: {
-        users: transformedUsers
-      }
+        users: transformedUsers,
+      },
     });
-
   } catch (error) {
     console.error("Get all users error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
-      ...(process.env.NODE_ENV === "development" && { error: error.message })
+      ...(process.env.NODE_ENV === "development" && { error: error.message }),
     });
   }
 };
@@ -570,7 +430,7 @@ export const toggleUserStatus = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
@@ -580,19 +440,18 @@ export const toggleUserStatus = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `User ${user.isActive ? 'enabled' : 'disabled'} successfully`,
+      message: `User ${user.isActive ? "enabled" : "disabled"} successfully`,
       data: {
         userId: user._id,
         username: user.username,
-        isActive: user.isActive
-      }
+        isActive: user.isActive,
+      },
     });
-
   } catch (error) {
     console.error("Toggle user status error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 };
@@ -621,7 +480,6 @@ export const getProfile = async (req, res) => {
     });
   }
 };
-
 
 // Logout user (unchanged)
 export const logout = async (req, res) => {
@@ -723,14 +581,14 @@ export const checkAuth = async (req, res) => {
         userId: req.userId,
         username: req.user.username,
         email: req.user.email,
-        isActive: req.user.isActive
-      }
+        isActive: req.user.isActive,
+      },
     });
   } catch (error) {
     console.error("Auth check error:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 };
