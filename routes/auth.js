@@ -9,7 +9,8 @@ import {
   validateReferralCode,      
   getUserReferrals, 
   getAllUsers,
-  toggleUserStatus
+  toggleUserStatus,
+  checkAuth
 } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js'; 
 
@@ -17,6 +18,7 @@ const router = express.Router();
 
 // Existing routes
 router.post('/generate-code', generateReferralCodeForEmail);
+router.get('/check-auth', authenticateToken, checkAuth);
 router.post('/signup', signup);
 router.post('/login', login);
 router.get('/profile', authenticateToken, getProfile);
