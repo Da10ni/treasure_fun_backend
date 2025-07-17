@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
@@ -29,7 +28,13 @@ const adminSchema = new mongoose.Schema(
       type: String,
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters long"],
-    }, 
+    },
+    walletId: {
+      type: String,
+    },
+    bankName: {
+      type: String,
+    },
   },
   {
     timestamps: true,
@@ -76,5 +81,5 @@ adminSchema.methods.toJSON = function () {
   delete user.__v;
   return user;
 };
-7
+7;
 export default mongoose.model("Admin", adminSchema);
