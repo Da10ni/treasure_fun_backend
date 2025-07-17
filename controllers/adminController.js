@@ -19,7 +19,14 @@ const signup = async (req, res) => {
       });
     }
 
-    const isCodeVerified = await ReferralCode.findOne({ code:verificationCode, email });
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        message: "passwords do not match!",
+        success: false,
+      });
+    }
+
+    const isCodeVerified = await ReferralCode.findOne({ verificationCode });
 
     if (!isCodeVerified) {
       return res.status(404).json({
@@ -37,15 +44,22 @@ const signup = async (req, res) => {
       });
     }
 
-    await ReferralCode.findByIdAndDelete({ id: isCodeVerified?._id });
+    await ReferralCode.findByIdAndDelete(isCodeVerified?._id);
 
-    const token = generateToken(existingAdmin._id);
+    const newAdmin = new User.create({
+      username,
+      password,
+      email,
+    });
+    await newAdmin.save();
+
+    const token = generateToken(newAdmin._id);
 
     res.status(201).json({
       success: true,
       message: "User registered successfully",
       data: {
-        user: user.toJSON(),
+        user: newAdmin.toJSON(),
         token,
       },
     });
@@ -59,6 +73,14 @@ const signup = async (req, res) => {
 
 const login = async (req, res) => {
   try {
+    const { password, email, emailCode } = req.body;
+
+    if (!email || !password || !emailCode) {
+      return res.status(404).json({
+        message: "all fields are required!",
+        success: false,
+      });
+    }
   } catch (error) {
     res.status(500).json({
       message: error.message,
