@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
+import adminRoutes from "./routes/admin.js";
 // import stakeRoutes from "./routes/stakes.js";
 
 // Load environment variables
@@ -63,6 +64,7 @@ mongoose.connection.on("error", (error) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 //app.use("/api/stakes", stakeRoutes);
 
 // Health check endpoint

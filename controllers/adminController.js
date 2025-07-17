@@ -1,3 +1,6 @@
+import { generateToken } from "../methods/methods";
+import User, { ReferralCode } from "../models/User";
+
 const signup = async (req, res) => {
   try {
     const { username, email, password, confirmPassword, verificationCode } =
@@ -16,8 +19,36 @@ const signup = async (req, res) => {
       });
     }
 
-    
+    const isCodeVerified = await ReferralCode.findOne({ verificationCode });
 
+    if (!isCodeVerified) {
+      return res.status(404).json({
+        message: "invalid code",
+        success: false,
+      });
+    }
+
+    const existingAdmin = await User.findOne({ email });
+
+    if (existingAdmin) {
+      return res.status(400).json({
+        message: "already have an account!",
+        success: false,
+      });
+    }
+
+    await ReferralCode.findByIdAndDelete({ _id: isCodeVerified?._id });
+
+    const token = generateToken(existingAdmin._id);
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      data: {
+        user: user.toJSON(),
+        token,
+      },
+    });
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -35,3 +66,5 @@ const login = async (req, res) => {
     });
   }
 };
+
+export { signup, login };
