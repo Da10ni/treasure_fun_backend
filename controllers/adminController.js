@@ -130,6 +130,40 @@ const login = async (req, res) => {
   }
 };
 
+const updateProfile = async (req, res) => {
+  try {
+    const { bankName, walletId } = req.body;
+    const { id: userId } = req.params;
+
+    const user = await Admin.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "invalid user",
+        success: false,
+      });
+    }
+
+    await Admin.updateOne(
+      { _id: userId },
+      {
+        walletId,
+        bankName,
+      }
+    );
+
+    return res.status(200).json({
+      message: "profile updated successfully!",
+      success: true,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+      success: false,
+    });
+  }
+};
+
 const logout = async (req, res) => {
   try {
     res.status(200).json({
@@ -144,4 +178,4 @@ const logout = async (req, res) => {
   }
 };
 
-export { signup, login,logout };
+export { signup, login, logout, updateProfile };
