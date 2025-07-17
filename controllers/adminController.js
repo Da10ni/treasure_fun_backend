@@ -82,6 +82,46 @@ const login = async (req, res) => {
         success: false,
       });
     }
+
+    const isCodeVerified = await ReferralCode.findOne({ emailCode });
+
+    if (isCodeVerified) {
+      return res.status(404).json({
+        message: "invalid code",
+        success: false,
+      });
+    }
+
+    const admin = await Admin.findOne({ email });
+
+    if (!admin) {
+      return res.status(404).json({
+        message: "invaild credentials!",
+        success: false,
+      });
+    }
+
+    const validPassword = await admin.comparePassword(password);
+
+    if (!validPassword) {
+      return res.status(404).json({
+        message: "password do not matched!",
+        success: false,
+      });
+    }
+
+    await ReferralCode.findByIdAndDelete(isCodeVerified?._id);
+
+    const token = generateToken(admin._id);
+
+    res.status(201).json({
+      success: true,
+      message: `welcome back ${admin.username}`,
+      data: {
+        user: admin.toJSON(),
+        token,
+      },
+    });
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -90,4 +130,18 @@ const login = async (req, res) => {
   }
 };
 
-export { signup, login };
+const logout = async (req, res) => {
+  try {
+    res.status(200).json({
+      message: "logout successfully",
+      success: true,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+      success: false,
+    });
+  }
+};
+
+export { signup, login,logout };
