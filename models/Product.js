@@ -7,11 +7,6 @@ const productSchema = new mongoose.Schema(
             required: true,
         },
 
-        level: {
-            type: String,
-            required: true
-        },
-
         image: {
             type: String,
             required: true,
@@ -31,8 +26,10 @@ const productSchema = new mongoose.Schema(
             }
         },
         income: {
-            type: String,
+            type: Number,
             required: true,
+            min: 0,
+            max: 100
         },
         handlingFee: {
             type: String,
