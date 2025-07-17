@@ -1,5 +1,5 @@
 import { generateToken } from "../methods/methods.js";
-import User, { ReferralCode } from "../models/User.js";
+import User, { ReferralCode } from "../models/User";
 
 const signup = async (req, res) => {
   try {
