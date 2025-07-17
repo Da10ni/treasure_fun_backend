@@ -1,36 +1,15 @@
 import express from "express";
-import {
-    getAllProducts,
-    getProductById,
-    addProduct,
-    updateProduct,
-    deleteProduct,
-    deleteMultipleProducts,
-    getProductsByStatus,
-    getProductsByLevel,
-    getProductsByPriceRange,
-    searchProducts
-} from "../controllers/productController.js"; // Update path as needed
-import { authMiddleware } from "../middleware/authMiddleware.js"; // Update path as needed
+import { addProduct, getAllProducts, deleteProduct } from "../controllers/productController.js";
 
 const router = express.Router();
 
-// Public routes (no authentication required)
-router.get("/products", getAllProducts);
-router.get("/products/search", searchProducts);
-router.get("/products/status/:status", getProductsByStatus);
-router.get("/products/level/:level", getProductsByLevel);
-router.get("/products/price-range", getProductsByPriceRange);
-router.get("/products/:id", getProductById);
+// POST /api/products - Add a new product
+router.post("/addproducts", addProduct);
 
-// Protected routes (authentication required)
-// Uncomment the line below if you want to protect product creation/modification
-// router.use(authMiddleware);
+// GET /api/products - Get all products
+router.get("/allproducts", getAllProducts);
 
-// Product management routes
-router.post("/products", addProduct);
-router.put("/products/:id", updateProduct);
-router.delete("/products/:id", deleteProduct);
-router.delete("/products", deleteMultipleProducts);
+// DELETE /api/products/:id - Delete a product by ID
+router.delete("/delete-products:id", deleteProduct);
 
 export default router;
