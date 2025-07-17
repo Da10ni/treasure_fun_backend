@@ -15,9 +15,9 @@ const PORT = process.env.PORT || 3000;
 app.use(
   cors({
     origin: [
-      "http://localhost:3000",
+      "http://localhost:3007",
       "http://127.0.0.1:5500",
-      "http://localhost:5174",
+      "http://localhost:5173",
       "null",
     ], // Allow file:// protocol
     credentials: true,

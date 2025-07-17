@@ -34,11 +34,11 @@ const productSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
-        handling: {
+        handlingFee: {
             type: String,
             required: true,
         }
 
     });
-    export const productModel =
-      mongoose.models.Product || mongoose.model("Product", productSchema);
+export const productModel =
+    mongoose.models.Product || mongoose.model("Product", productSchema);
