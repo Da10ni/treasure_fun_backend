@@ -1,5 +1,6 @@
 import { generateToken } from "../methods/methods.js";
-import User, { ReferralCode } from "../models/User.js";
+import Admin from "../models/Admin.js";
+import { ReferralCode } from "../models/User.js";
 
 const signup = async (req, res) => {
   try {
@@ -28,14 +29,14 @@ const signup = async (req, res) => {
 
     const isCodeVerified = await ReferralCode.findOne({ verificationCode });
 
-    if (!isCodeVerified) {
+    if (isCodeVerified) {
       return res.status(404).json({
         message: "invalid code",
         success: false,
       });
     }
 
-    const existingAdmin = await User.findOne({ email });
+    const existingAdmin = await Admin.findOne({ email });
 
     if (existingAdmin) {
       return res.status(400).json({
@@ -46,7 +47,7 @@ const signup = async (req, res) => {
 
     await ReferralCode.findByIdAndDelete(isCodeVerified?._id);
 
-    const newAdmin = new User.create({
+    const newAdmin = new Admin({
       username,
       password,
       email,
