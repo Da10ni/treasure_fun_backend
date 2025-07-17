@@ -137,5 +137,5 @@ userSchema.methods.toJSON = function () {
   delete user.__v;
   return user;
 };
-
+7
 export default mongoose.model("User", userSchema);
