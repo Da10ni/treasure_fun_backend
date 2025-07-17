@@ -19,7 +19,7 @@ const signup = async (req, res) => {
       });
     }
 
-    const isCodeVerified = await ReferralCode.findOne({ verificationCode });
+    const isCodeVerified = await ReferralCode.findOne({ code:verificationCode, email });
 
     if (!isCodeVerified) {
       return res.status(404).json({
@@ -37,7 +37,7 @@ const signup = async (req, res) => {
       });
     }
 
-    await ReferralCode.findByIdAndDelete({ _id: isCodeVerified?._id });
+    await ReferralCode.findByIdAndDelete({ id: isCodeVerified?._id });
 
     const token = generateToken(existingAdmin._id);
 
