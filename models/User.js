@@ -75,7 +75,6 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Email Verification Code Schema (temporary storage for email verification)
 const referralCodeSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -89,17 +88,16 @@ const referralCodeSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 600, // Expires in 10 minutes
+    expires: 600, 
   },
 });
 
 export const ReferralCode = mongoose.model("ReferralCode", referralCodeSchema);
 
-// Create indexes for better performance
 userSchema.index({ username: 1 });
 userSchema.index({ mobileNo: 1 });
-userSchema.index({ myReferralCode: 1 }); // NEW: Index for referral code lookups
-userSchema.index({ referredByCode: 1 }); // NEW: Index for referral tracking
+userSchema.index({ myReferralCode: 1 }); 
+userSchema.index({ referredByCode: 1 }); 
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {

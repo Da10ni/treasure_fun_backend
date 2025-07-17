@@ -22,15 +22,15 @@ const generateUserReferralCode = () => {
 const generateUniqueReferralCode = async (maxRetries = 5) => {
   let code;
   let attempts = 0;
-  
+
   do {
     code = generateUserReferralCode();
     attempts++;
-    
+
     if (attempts > maxRetries) {
       throw new Error('Unable to generate unique referral code');
     }
-    
+
     const existingUser = await User.findByReferralCode(code);
     if (!existingUser) {
       return code;
@@ -377,7 +377,7 @@ export const signup = async (req, res) => {
 export const validateReferralCode = async (req, res) => {
   try {
     const { code } = req.params;
-    
+
     if (!code || !/^[A-Z0-9]{8}$/.test(code)) {
       return res.status(400).json({
         success: false,
@@ -386,7 +386,7 @@ export const validateReferralCode = async (req, res) => {
     }
 
     const user = await User.findByReferralCode(code).select('username myReferralCode');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -417,12 +417,12 @@ export const validateReferralCode = async (req, res) => {
 export const getUserReferrals = async (req, res) => {
   try {
     const userId = req.userId; // From auth middleware
-    
+
     const user = await User.findById(userId)
       .populate('referredUsers', 'username email createdAt')
       .populate('referredByUser', 'username myReferralCode')
       .select('-password');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -526,7 +526,7 @@ export const getAllUsers = async (req, res) => {
       .select('-password') // Exclude password field
       .populate('referredByUser', 'username myReferralCode')
       .populate('referredUsers', 'username email');
-    
+
     // Transform data to match frontend expectations
     const transformedUsers = users.map(user => ({
       id: user._id,
@@ -565,7 +565,7 @@ export const getAllUsers = async (req, res) => {
 export const toggleUserStatus = async (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
