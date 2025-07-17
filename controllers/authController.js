@@ -30,7 +30,6 @@ export const generateReferralCodeForEmail = async (req, res) => {
       });
     }
 
-    // Check if email already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(409).json({
@@ -39,11 +38,9 @@ export const generateReferralCodeForEmail = async (req, res) => {
       });
     }
 
-    // Generate email verification code
     const code = generateEmailVerificationCode();
     console.log("Generated email verification code:", code);
 
-    // Delete any existing verification code for this email
     await ReferralCode.deleteMany({ email: email.toLowerCase() });
 
     // Save new verification code
