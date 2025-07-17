@@ -2,6 +2,7 @@ import User, { ReferralCode } from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { sendReferralCodeEmail } from "../services/emailService.js";
 
+
 // Generate random email verification code (6-digit)
 const generateEmailVerificationCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
@@ -516,6 +517,85 @@ export const login = async (req, res) => {
   }
 };
 
+// Add this to your existing authController.js file
+
+export const getAllUsers = async (req, res) => {
+  try {
+    // Fetch all users without pagination or filtering
+    const users = await User.find()
+      .select('-password') // Exclude password field
+      .populate('referredByUser', 'username myReferralCode')
+      .populate('referredUsers', 'username email');
+    
+    // Transform data to match frontend expectations
+    const transformedUsers = users.map(user => ({
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      mobileNo: user.mobileNo || '',
+      status: user.isActive ? 'active' : 'disabled',
+      joinDate: user.createdAt.toISOString().split('T')[0],
+      lastLogin: user.lastLogin ? user.lastLogin.toISOString().split('T')[0] : 'Never',
+      myReferralCode: user.myReferralCode,
+      referralCount: user.referredUsers.length,
+      referredBy: user.referredByUser ? {
+        username: user.referredByUser.username,
+        referralCode: user.referredByUser.myReferralCode
+      } : null
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        users: transformedUsers
+      }
+    });
+
+  } catch (error) {
+    console.error("Get all users error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      ...(process.env.NODE_ENV === "development" && { error: error.message })
+    });
+  }
+};
+
+// Additional helper function for toggling user status
+export const toggleUserStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Toggle the isActive status
+    user.isActive = !user.isActive;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `User ${user.isActive ? 'enabled' : 'disabled'} successfully`,
+      data: {
+        userId: user._id,
+        username: user.username,
+        isActive: user.isActive
+      }
+    });
+
+  } catch (error) {
+    console.error("Toggle user status error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
 // Get current user profile (unchanged)
 export const getProfile = async (req, res) => {
   try {
@@ -541,6 +621,7 @@ export const getProfile = async (req, res) => {
     });
   }
 };
+
 
 // Logout user (unchanged)
 export const logout = async (req, res) => {

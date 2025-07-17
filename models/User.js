@@ -57,6 +57,10 @@ const userSchema = new mongoose.Schema(
       type: String, // Store the referral code that was used to refer this user
       default: null,
     },
+    referredByUser : {
+      type: String,
+      
+    },
     referredUsers: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
