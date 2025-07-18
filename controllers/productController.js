@@ -122,3 +122,62 @@ export const deleteProduct = async (req, res) => {
         });
     }
 };
+export const getActiveProducts = async (req, res) => {
+    try {
+        const activeProducts = await productModel.find({ status: 'active' });
+
+        res.status(200).json({
+            success: true,
+            message: "Active products retrieved successfully",
+            count: activeProducts.length,
+            data: activeProducts
+        });
+
+    } catch (error) {
+        console.error("Error fetching active products:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+// Get single product by ID
+export const getProductById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Find product by ID
+        const product = await productModel.findById(id);
+        
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: "Product not found"
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Product retrieved successfully",
+            data: product
+        });
+
+    } catch (error) {
+        console.error("Error fetching product:", error);
+        
+        // Handle invalid ObjectId error
+        if (error.name === 'CastError') {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid product ID format"
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
