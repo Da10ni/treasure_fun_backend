@@ -574,12 +574,6 @@ export const checkAuth = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "User is authenticated",
-      data: {
-        userId: req.userId,
-        username: req.user.username,
-        email: req.user.email,
-        isActive: req.user.isActive,
-      },
     });
   } catch (error) {
     console.error("Auth check error:", error);

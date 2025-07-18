@@ -14,7 +14,7 @@ export const createDeposit = async (req, res) => {
       userId, 
       productId, 
       amount, 
-      referredBy 
+      referredByCode 
     } = req.body;
 
     // Check if file is uploaded
@@ -70,7 +70,7 @@ export const createDeposit = async (req, res) => {
       productId,
       attachment: uploadResult.url, // Store Cloudinary URL
       amount: amount || product.priceRange.min, // Use minimum price if amount not provided
-      referredBy,
+      referredByCode,
       status: 'pending' // Default status
     });
 
@@ -202,15 +202,11 @@ export const getDepositById = async (req, res) => {
     });
   }
 };
-
-// =============================================
-// APPROVE DEPOSIT
-// =============================================
 export const approveDeposit = async (req, res) => {
   try {
     const { depositId } = req.params;
-    const { approvedBy, notes } = req.body; // Optional: track who approved and any notes
-
+    const { approvedBy, notes } = req.body; // Add these from request body
+    
     // Find the deposit
     const deposit = await Deposit.findById(depositId);
     
@@ -231,11 +227,36 @@ export const approveDeposit = async (req, res) => {
 
     // Update deposit status
     deposit.status = 'approved';
-    deposit.approvedBy = approvedBy;
+    deposit.approvedBy = approvedBy; // Add this field to your schema if not present
     deposit.approvedAt = new Date();
     deposit.notes = notes;
 
     await deposit.save();
+
+    // Handle referral bonus
+    try {
+      // Find the user who made the deposit
+      const currentUser = await User.findById(deposit.userId);
+      
+      if (currentUser && currentUser.referredByCode) {
+        // Find the referrer by their referral code
+        const referrer = await User.findByReferralCode(currentUser.referredByCode);
+        
+        if (referrer) {
+          // Calculate 10% bonus
+          const bonusAmount = deposit.amount * 0.10;
+          
+          // Update referrer's wallet balance
+          referrer.tuftWalletBalance = (referrer.tuftWalletBalance || 0) + bonusAmount;
+          await referrer.save();
+          
+          console.log(`Referral bonus of ${bonusAmount} added to user ${referrer.username}`);
+        }
+      }
+    } catch (referralError) {
+      console.error('Error processing referral bonus:', referralError);
+      // Don't fail the entire deposit approval if referral bonus fails
+    }
 
     // Populate the updated deposit for response
     const updatedDeposit = await Deposit.findById(depositId)
@@ -257,7 +278,6 @@ export const approveDeposit = async (req, res) => {
     });
   }
 };
-
 // =============================================
 // REJECT DEPOSIT
 // =============================================
@@ -319,7 +339,7 @@ export const rejectDeposit = async (req, res) => {
 export const updateDepositDetails = async (req, res) => {
   try {
     const { depositId } = req.params;
-    const { amount, referredBy } = req.body;
+    const { amount, referredByCode } = req.body;
 
     // Find the deposit
     const deposit = await Deposit.findById(depositId);
@@ -352,7 +372,7 @@ export const updateDepositDetails = async (req, res) => {
 
     // Update allowed fields
     if (amount !== undefined) deposit.amount = amount;
-    if (referredBy !== undefined) deposit.referredBy = referredBy;
+    if (referredByCode !== undefined) deposit.referredByCode = referredByCode;
 
     await deposit.save();
 
