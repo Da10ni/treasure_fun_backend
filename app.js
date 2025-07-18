@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 import productRoutes from "./routes/product.js"
+import depositRoutes from "./routes/deposit.js"
 
 // import stakeRoutes from "./routes/stakes.js";
 
@@ -20,7 +21,8 @@ app.use(
     origin: [
       "http://localhost:3006",
       "http://127.0.0.1:5500",
-      "http://localhost:5173",
+      "http://localhost:5175",
+      "http://localhost:5176",
       "null",
     ], // Allow file:// protocol
     credentials: true,
@@ -68,6 +70,7 @@ mongoose.connection.on("error", (error) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/products", productRoutes)
+app.use("/api/deposits", depositRoutes)
 //app.use("/api/stakes", stakeRoutes);
 
 // Health check endpoint

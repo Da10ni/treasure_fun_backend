@@ -34,11 +34,14 @@
   "description": "Backend API for Treasure Hunt game with authentication, user management, and game mechanics",
   "dependencies": {
     "bcrypt": "^5.1.1",
+    "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
+    "datauri": "^4.1.0",
     "dotenv": "^16.3.1",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.5.0",
+    "multer": "^2.0.1",
     "nodemailer": "^6.9.7",
     "validator": "^13.11.0"
   },
