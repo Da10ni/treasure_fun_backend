@@ -7,6 +7,6 @@ const routes = Router();
 routes.route("/register").post(signup);
 routes.route("/login").post(login);
 routes.route("/logout").post(logout);
-routes.route("/update/:id").post(authenticateToken,updateProfile);
+routes.route("/update/:id").post(updateProfile);
 
 export default routes;
