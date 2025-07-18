@@ -57,9 +57,9 @@ const userSchema = new mongoose.Schema(
       type: String, // Store the referral code that was used to refer this user
       default: null,
     },
-    referredByUser : {
+    referredByUser: {
       type: String,
-      
+
     },
     referredUsers: [{
       type: mongoose.Schema.Types.ObjectId,
@@ -69,6 +69,22 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    walletId: {
+      type: String,
+      default: null
+    },
+    bankName: {
+      type: String,
+      default: null
+    },
+    walletBalance: {
+      type: Number,
+      default: 10000000000
+    },
+    tuftWalletBalance: {
+      type: Number,
+      default: 0
+    }
   },
   {
     timestamps: true,
@@ -88,7 +104,7 @@ const referralCodeSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 600, 
+    expires: 600,
   },
 });
 
@@ -96,8 +112,8 @@ export const ReferralCode = mongoose.model("ReferralCode", referralCodeSchema);
 
 userSchema.index({ username: 1 });
 userSchema.index({ mobileNo: 1 });
-userSchema.index({ myReferralCode: 1 }); 
-userSchema.index({ referredByCode: 1 }); 
+userSchema.index({ myReferralCode: 1 });
+userSchema.index({ referredByCode: 1 });
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
