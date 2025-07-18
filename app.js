@@ -24,6 +24,7 @@ app.use(
       "http://127.0.0.1:5500",
       "http://localhost:5175",
       "http://localhost:5177",
+      "http://localhost:5176",
       "null",
     ], // Allow file:// protocol
     credentials: true,
