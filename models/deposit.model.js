@@ -16,14 +16,8 @@ const depositSchema = new mongoose.Schema({
     required: true
   },
   attachment: {
-    url: {
       type: String,
       required: true
-    },
-    public_id: {
-      type: String,
-      required: true
-    }
   },
   amount: {
     type: Number,
@@ -41,6 +35,9 @@ const depositSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  referredBy: {
+    type: String,
   }
 });
 
