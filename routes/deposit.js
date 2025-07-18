@@ -39,7 +39,7 @@ const upload = multer({
 
 // Create new deposit (with file upload)
 // POST /api/deposits
-router.post('/create', upload.single('file'), createDeposit);
+router.post('/create', upload.single('attachment'), createDeposit);
 
 // Get all deposits (with filters and pagination)
 // GET /api/deposits?status=pending&page=1&limit=10
@@ -68,5 +68,7 @@ router.put('/:depositId/reject', rejectDeposit);
 // Update deposit details (confirm details) - with optional file upload
 // PUT /api/deposits/:depositId/details
 router.put('/:depositId/details', upload.single('attachment'), updateDepositDetails);
+
+router.get('/stats', getDepositStats);  
 
 export default router;
