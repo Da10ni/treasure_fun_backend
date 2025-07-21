@@ -84,7 +84,23 @@ const userSchema = new mongoose.Schema(
     tuftWalletBalance: {
       type: Number,
       default: 0
-    }
+    },
+    order: {
+      type: mongoose.Types.ObjectId,
+      ref: "Product"
+    },
+    rejected: {
+      type: mongoose.Types.ObjectId,
+      ref: "Product"
+    },
+    buy: {
+      type: mongoose.Types.ObjectId,
+      ref: "Product"
+    },
+    sell: {
+      type: mongoose.Types.ObjectId,
+      ref: "Product"
+    },
   },
   {
     timestamps: true,

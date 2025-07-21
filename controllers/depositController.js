@@ -1,5 +1,3 @@
-
-
 import Deposit from '../models/deposit.model.js';
 import { productModel as Product } from '../models/Product.js'; // Updated import
 import User from '../models/User.js'; // Assuming you have a User model
