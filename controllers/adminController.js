@@ -178,4 +178,50 @@ const logout = async (req, res) => {
   }
 };
 
-export { signup, login, logout, updateProfile };
+// NEW GET API - Get Admin Profile by ID
+const getProfile = async (req, res) => {
+  try {
+    const { id: userId } = req.params;
+
+    // Validate if userId is provided
+    if (!userId) {
+      return res.status(400).json({
+        message: "User ID is required",
+        success: false,
+      });
+    }
+
+    // Find admin by ID and exclude password field
+    const admin = await Admin.findById(userId).select("-password");
+
+    if (!admin) {
+      return res.status(404).json({
+        message: "Admin not found",
+        success: false,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Admin profile retrieved successfully",
+      data: {
+        user: admin.toJSON(),
+      },
+    });
+  } catch (error) {
+    // Handle invalid ObjectId format
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid user ID format",
+        success: false,
+      });
+    }
+
+    res.status(500).json({
+      message: error.message,
+      success: false,
+    });
+  }
+};
+
+export { signup, login, logout, updateProfile,getProfile };
