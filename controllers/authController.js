@@ -570,7 +570,7 @@ export const updateProfile = async (req, res) => {
 };
 
 // check auth
-export const checkAuth = async (req, res) => {
+export const checkAuth = async (_, res) => {
   try {
     res.status(200).json({
       success: true,

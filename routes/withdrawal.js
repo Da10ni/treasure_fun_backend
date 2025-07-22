@@ -7,30 +7,48 @@ import {
     getUserWithdrawals,
     getWithdrawalDetails
 } from '../controllers/withdrawalController.js';
-
-// Middleware imports (adjust path according to your structure)
-import { authenticateToken } from '../middleware/auth.js'
+import { authenticateAdmin, authenticateUser } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// User Routes
-// POST /api/withdrawals - User withdrawal request create karna
-router.post('/create-withdrawal/:id', createWithdrawalRequest);
+// =============================================
+// USER WITHDRAWAL ROUTES (authenticateUser)
+// =============================================
 
-// GET /api/withdrawals/my - User apne withdrawal requests dekhna
-router.get('/my', getUserWithdrawals);
+// Create withdrawal request - USER ONLY
+// POST /api/withdrawals/create-withdrawal/:id
+router.post('/create-withdrawal/:id', authenticateUser, createWithdrawalRequest);
 
-// GET /api/withdrawals/:id - Single withdrawal details dekhna
-router.get('/:id', getWithdrawalDetails);
+// Get user's own withdrawal requests - USER ONLY
+// GET /api/withdrawals/my
+router.get('/my', authenticateUser, getUserWithdrawals);
 
-// Admin Routes
-// GET /api/withdrawals - Admin sare withdrawal requests dekhna
-router.get('/', getAllWithdrawalRequests);
+// =============================================
+// ADMIN WITHDRAWAL ROUTES (authenticateAdmin)
+// =============================================
 
-// PUT /api/withdrawals/:id/approve - Admin withdrawal approve karna
-router.put('/:id/approve', approveWithdrawal);
+// Get all withdrawal requests - ADMIN ONLY
+// GET /api/withdrawals
+router.get('/', authenticateAdmin, getAllWithdrawalRequests);
 
-// PUT /api/withdrawals/:id/reject - Admin withdrawal reject karna
-router.put('/:id/reject', rejectWithdrawal);
+// Approve withdrawal - ADMIN ONLY
+// PUT /api/withdrawals/:id/approve
+router.put('/:id/approve', authenticateAdmin, approveWithdrawal);
+
+// Reject withdrawal - ADMIN ONLY
+// PUT /api/withdrawals/:id/reject
+router.put('/:id/reject',authenticateAdmin, rejectWithdrawal);
+
+// =============================================
+// MIXED ACCESS ROUTES (Can be accessed by both)
+// =============================================
+
+// Get single withdrawal details - USER (own) or ADMIN (any)
+// GET /api/withdrawals/:id
+// Note: Controller should check if user is accessing their own withdrawal
+router.get('/:id', authenticateUser, getWithdrawalDetails);
+
+// Alternative: If you want admin to also access withdrawal details
+// You can create separate routes or handle in controller based on req.userType
 
 export default router;

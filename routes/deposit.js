@@ -10,13 +10,13 @@ import {
   getUserDeposits,
   getDepositStats
 } from '../controllers/depositController.js';
+import { authenticateAdmin, authenticateUser } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // =============================================
 // MULTER CONFIGURATION
 // =============================================
-
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
@@ -34,41 +34,43 @@ const upload = multer({
 });
 
 // =============================================
-// DEPOSIT ROUTES
+// USER DEPOSIT ROUTES (authenticateUser)
 // =============================================
 
-// Create new deposit (with file upload)
-// POST /api/deposits
-router.post('/create', upload.single('attachment'), createDeposit);
+// Create new deposit (with file upload) - USER ONLY
+// POST /api/deposits/create
+router.post('/create', authenticateUser, upload.single('attachment'), createDeposit);
 
-// Get all deposits (with filters and pagination)
-// GET /api/deposits?status=pending&page=1&limit=10
-router.get('/', getDeposits);
-
-// Get deposit statistics
-// GET /api/deposits/stats
-router.get('/stats', getDepositStats);
-
-// Get single deposit by ID
-// GET /api/deposits/:depositId
-router.get('/:depositId', getDepositById);
-
-// Get deposits by user ID
+// Get deposits by user ID - USER CAN ACCESS (with security check in controller)
 // GET /api/deposits/user/:userId
-router.get('/user/:userId', getUserDeposits);
+router.get('/user/:userId', authenticateUser, getUserDeposits);
 
-// Approve deposit
-// PUT /api/deposits/:depositId/approve
-router.put('/:depositId/approve', approveDeposit);
-
-// Reject deposit
-// PUT /api/deposits/:depositId/reject
-router.put('/:depositId/reject', rejectDeposit);
-
-// Update deposit details (confirm details) - with optional file upload
+// Update deposit details (pending deposits only) - USER ONLY
 // PUT /api/deposits/:depositId/details
-router.put('/:depositId/details', upload.single('attachment'), updateDepositDetails);
+router.put('/:depositId/details', authenticateUser, upload.single('attachment'), updateDepositDetails);
 
-router.get('/stats', getDepositStats);  
+// =============================================
+// ADMIN DEPOSIT ROUTES (authenticateAdmin)  
+// =============================================
+
+// Get deposit statistics - ADMIN ONLY
+// GET /api/deposits/stats
+router.get('/stats', authenticateAdmin, getDepositStats);
+
+// Get all deposits (with filters and pagination) - ADMIN ONLY
+// GET /api/deposits?status=pending&page=1&limit=10
+router.get('/', authenticateAdmin, getDeposits);
+
+// Get single deposit by ID - ADMIN ONLY
+// GET /api/deposits/:depositId
+router.get('/:depositId', authenticateAdmin, getDepositById);
+
+// Approve deposit - ADMIN ONLY
+// PUT /api/deposits/:depositId/approve
+router.put('/:depositId/approve', authenticateAdmin, approveDeposit);
+
+// Reject deposit - ADMIN ONLY
+// PUT /api/deposits/:depositId/reject
+router.put('/:depositId/reject', authenticateAdmin, rejectDeposit);
 
 export default router;

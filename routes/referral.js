@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { createReferralPercentage } from "../controllers/referralController.js";
-import { authenticateToken } from "../middleware/auth.js";
+import { authenticateAdmin } from "../middleware/auth.js";
 
 const routes = Router();
 
-routes.route("/create-referral").post(authenticateToken, createReferralPercentage)
+routes.route("/create-referral").post(authenticateAdmin, createReferralPercentage)
 
 export default routes
