@@ -7,6 +7,7 @@ import adminRoutes from "./routes/admin.js";
 import productRoutes from "./routes/product.js"
 import depositRoutes from "./routes/deposit.js"
 import withdrawalRoutes from './routes/withdrawal.js';
+import referralsRoutes from './routes/referral.js';
 
 // import stakeRoutes from "./routes/stakes.js";
 
@@ -77,6 +78,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/products", productRoutes)
 app.use("/api/deposits", depositRoutes)
 app.use("/api/withdrawals", withdrawalRoutes)
+app.use("/api/referrals", referralsRoutes)
 //app.use("/api/stakes", stakeRoutes);
 
 // Health check endpoint

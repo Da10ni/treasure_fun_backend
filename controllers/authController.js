@@ -8,6 +8,7 @@ import {
   validateLoginInput,
   validateSignupInput,
 } from "../methods/methods.js";
+import Deposit from "../models/deposit.model.js";
 // Generate and send email verification code
 export const generateReferralCodeForEmail = async (req, res) => {
   try {
@@ -580,6 +581,50 @@ export const checkAuth = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+};
+
+// Simple version - just get all approved deposits for user
+export const getMyDeposits = async (req, res) => {
+  try {
+    const { id:userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    // Get only approved deposits
+    const approvedDeposits = await Deposit.find({
+      userId: userId,
+      status: 'approved'
+    })
+    .populate('productId', 'title image priceRange')
+    .sort({ updatedAt: -1 })
+    .select('amount updatedAt productId createdAt referredBy attachment');
+
+    // Calculate total
+    const totalAmount = approvedDeposits.reduce((sum, deposit) => sum + deposit.amount, 0);
+
+    res.status(200).json({
+      success: true,
+      message: `Found ${approvedDeposits.length} approved deposits`,
+      data: {
+        approvedDeposits,
+        totalCount: approvedDeposits.length,
+        totalAmount: totalAmount
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching approved deposits:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching approved deposits',
+      error: error.message
     });
   }
 };

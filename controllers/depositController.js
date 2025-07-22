@@ -8,11 +8,11 @@ import { uploadToCloudinary, deleteFromCloudinary } from '../services/cloudinary
 // =============================================
 export const createDeposit = async (req, res) => {
   try {
-    const { 
-      userId, 
-      productId, 
-      amount, 
-      referredByCode 
+    const {
+      userId,
+      productId,
+      amount,
+      referredByCode
     } = req.body;
 
     // Check if file is uploaded
@@ -39,7 +39,6 @@ export const createDeposit = async (req, res) => {
         message: 'User not found'
       });
     }
-
     // Verify product exists
     const product = await Product.findById(productId);
     if (!product) {
@@ -88,7 +87,7 @@ export const createDeposit = async (req, res) => {
 
   } catch (error) {
     console.error('Error creating deposit:', error);
-    
+
     // Handle duplicate deposit (if you want to prevent duplicates)
     if (error.code === 11000) {
       return res.status(400).json({
@@ -110,11 +109,11 @@ export const createDeposit = async (req, res) => {
 // =============================================
 export const getDeposits = async (req, res) => {
   try {
-    const { 
-      status, 
-      userId, 
-      productId, 
-      page = 1, 
+    const {
+      status,
+      userId,
+      productId,
+      page = 1,
       limit = 10,
       sortBy = 'createdAt',
       order = 'desc'
@@ -128,7 +127,7 @@ export const getDeposits = async (req, res) => {
 
     // Calculate pagination
     const skip = (page - 1) * limit;
-    
+
     // Sort order
     const sortOrder = order === 'asc' ? 1 : -1;
 
@@ -203,11 +202,11 @@ export const getDepositById = async (req, res) => {
 export const approveDeposit = async (req, res) => {
   try {
     const { depositId } = req.params;
-    const { approvedBy, notes } = req.body; // Add these from request body
-    
+    const { approvedBy, notes } = req.body;
+
     // Find the deposit
     const deposit = await Deposit.findById(depositId);
-    
+
     if (!deposit) {
       return res.status(404).json({
         success: false,
@@ -225,7 +224,7 @@ export const approveDeposit = async (req, res) => {
 
     // Update deposit status
     deposit.status = 'approved';
-    deposit.approvedBy = approvedBy; // Add this field to your schema if not present
+    deposit.approvedBy = approvedBy;
     deposit.approvedAt = new Date();
     deposit.notes = notes;
 
@@ -235,20 +234,31 @@ export const approveDeposit = async (req, res) => {
     try {
       // Find the user who made the deposit
       const currentUser = await User.findById(deposit.userId);
-      
+
       if (currentUser && currentUser.referredByCode) {
         // Find the referrer by their referral code
         const referrer = await User.findByReferralCode(currentUser.referredByCode);
-        
+
         if (referrer) {
-          // Calculate 10% bonus
-          const bonusAmount = deposit.amount * 0.10;
-          
-          // Update referrer's wallet balance
-          referrer.tuftWalletBalance = (referrer.tuftWalletBalance || 0) + bonusAmount;
-          await referrer.save();
-          
-          console.log(`Referral bonus of ${bonusAmount} added to user ${referrer.username}`);
+          // Get referral percentage from referral model
+          const referralSettings = await referralModel.findOne().sort({ createdAt: -1 }); // Latest referral settings
+
+          if (referralSettings) {
+            // Calculate bonus based on percentage from database
+            const bonusPercentage = referralSettings.percentage / 100; // Convert percentage to decimal
+            const bonusAmount = deposit.amount * bonusPercentage;
+
+            console.log(`Using referral percentage: ${referralSettings.percentage}%`);
+            console.log(`Deposit amount: ${deposit.amount}, Bonus amount: ${bonusAmount}`);
+
+            // Update referrer's wallet balance
+            referrer.tuftWalletBalance = (referrer.tuftWalletBalance || 0) + bonusAmount;
+            await referrer.save();
+
+            console.log(`Referral bonus of ${bonusAmount} (${referralSettings.percentage}%) added to user ${referrer.username}`);
+          } else {
+            console.log('No referral settings found, skipping bonus');
+          }
         }
       }
     } catch (referralError) {
@@ -286,7 +296,7 @@ export const rejectDeposit = async (req, res) => {
 
     // Find the deposit
     const deposit = await Deposit.findById(depositId);
-    
+
     if (!deposit) {
       return res.status(404).json({
         success: false,
@@ -341,7 +351,7 @@ export const updateDepositDetails = async (req, res) => {
 
     // Find the deposit
     const deposit = await Deposit.findById(depositId);
-    
+
     if (!deposit) {
       return res.status(404).json({
         success: false,
@@ -361,10 +371,10 @@ export const updateDepositDetails = async (req, res) => {
     if (req.file) {
       // Upload new image to Cloudinary
       const uploadResult = await uploadToCloudinary(req.file, 'deposits');
-      
+
       // Optional: Delete old image from Cloudinary (if you store public_id)
       // You might want to add a public_id field to your schema to track this
-      
+
       deposit.attachment = uploadResult.url;
     }
 

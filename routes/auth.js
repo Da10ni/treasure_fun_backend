@@ -10,7 +10,8 @@ import {
   getUserReferrals, 
   getAllUsers,
   toggleUserStatus,
-  checkAuth
+  checkAuth,
+  getMyDeposits
 } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/auth.js'; 
 
@@ -24,6 +25,7 @@ router.post('/login', login);
 router.get('/profile', authenticateToken, getProfile);
 router.post('/logout', authenticateToken, logout);
 router.put('/profile', authenticateToken, updateProfile);
+router.get('/deposits/:id',  getMyDeposits);
 
 // NEW: Referral system routes
 router.get('/referral/validate/:code', validateReferralCode);

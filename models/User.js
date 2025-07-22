@@ -86,20 +86,20 @@ const userSchema = new mongoose.Schema(
       default: 0
     },
     order: {
-      type: mongoose.Types.ObjectId,
-      ref: "Product"
+      type: Number,
+      default: 0
     },
     rejected: {
-      type: mongoose.Types.ObjectId,
-      ref: "Product"
+      type: Number,
+      default: 0
     },
     buy: {
-      type: mongoose.Types.ObjectId,
-      ref: "Product"
+      type: Number,
+      default: 0
     },
     sell: {
-      type: mongoose.Types.ObjectId,
-      ref: "Product"
+      type: Number,
+      default: 0
     },
   },
   {

@@ -224,4 +224,27 @@ const getProfile = async (req, res) => {
   }
 };
 
-export { signup, login, logout, updateProfile,getProfile };
+const getActiveUsers = async (req,res)=>{
+  try {
+    const activeUsers = await User.find({ isActive: true }).select("-password");
+
+    if(activeUsers.length === 0) {
+      return res.status(404).json({
+        message: "No active users found",
+        success: false,
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Active users retrieved successfully",
+      data: {
+        users: activeUsers,
+      },
+    });
+
+  } catch (error) {
+    
+  }
+}
+
+export { signup, login, logout, updateProfile,getProfile,getActiveUsers };
