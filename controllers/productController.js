@@ -1,10 +1,12 @@
-import { productModel} from "../models/Product.js";
+import { productModel } from "../models/Product.js";
 
 // Add a new product
 export const addProduct = async (req, res) => {
     try {
         const { title, image, status, priceRange, income, handlingFee } = req.body;
-
+        const creatorId = req.userId;
+        console.log("creatorId", creatorId);
+        // return
         // Validate required fields
         if (!title || !image || !status || !priceRange || !income || !handlingFee) {
             return res.status(400).json({
@@ -39,7 +41,8 @@ export const addProduct = async (req, res) => {
                 max: priceRange.max
             },
             income,
-            handlingFee
+            handlingFee,
+            creator: creatorId
         });
 
         const savedProduct = await newProduct.save();
@@ -63,7 +66,7 @@ export const addProduct = async (req, res) => {
 // Get all products
 export const getAllProducts = async (req, res) => {
     try {
-        const products = await productModel.find({});
+        const products = await productModel.find({}).populate("creator");
 
         res.status(200).json({
             success: true,
@@ -106,7 +109,7 @@ export const deleteProduct = async (req, res) => {
 
     } catch (error) {
         console.error("Error deleting product:", error);
-        
+
         // Handle invalid ObjectId error
         if (error.name === 'CastError') {
             return res.status(400).json({
@@ -124,7 +127,7 @@ export const deleteProduct = async (req, res) => {
 };
 export const getActiveProducts = async (req, res) => {
     try {
-        const activeProducts = await productModel.find({ status: 'active' });
+        const activeProducts = await productModel.find({ status: 'active' }).populate("creator");
 
         res.status(200).json({
             success: true,
@@ -149,7 +152,7 @@ export const getProductById = async (req, res) => {
 
         // Find product by ID
         const product = await productModel.findById(id);
-        
+
         if (!product) {
             return res.status(404).json({
                 success: false,
@@ -165,7 +168,7 @@ export const getProductById = async (req, res) => {
 
     } catch (error) {
         console.error("Error fetching product:", error);
-        
+
         // Handle invalid ObjectId error
         if (error.name === 'CastError') {
             return res.status(400).json({

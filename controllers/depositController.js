@@ -79,9 +79,17 @@ export const createDeposit = async (req, res) => {
     await newDeposit.save();
     console.log('✅ Deposit created with pending status - NO wallet update yet');
 
+    // 🔥 INCREMENT USER'S DEPOSIT COUNT
+    await User.findByIdAndUpdate(
+      userId, 
+      { $inc: { order: 1 } }, // depositCount ko 1 se increase kar do
+      { new: true }
+    );
+    console.log('📊 User deposit count incremented');
+
     // Get the created deposit with populated fields
     const createdDeposit = await Deposit.findById(newDeposit._id)
-      .populate('userId', 'username name email phone tuftWalletBalance')
+      .populate('userId', 'username name email phone tuftWalletBalance depositCount') // depositCount bhi include kar diya
       .populate('productId', 'title image status priceRange income handlingFee');
 
     res.status(201).json({
@@ -150,9 +158,14 @@ export const approveDeposit = async (req, res) => {
 
     const previousWalletBalance = currentUser.walletBalance || 0;
     currentUser.walletBalance = previousWalletBalance + deposit.amount;
+    
+    // 🔥 INCREMENT USER'S BUY COUNT
+    currentUser.buy = (currentUser.buy || 0) + 1;
+    
     await currentUser.save();
 
     console.log(`✅ User wallet updated: walletBalance ${previousWalletBalance} → ${currentUser.walletBalance}`);
+    console.log(`📊 User buy count incremented to: ${currentUser.buy}`);
 
     // ✅ STEP 2: Handle referral bonus (REFERRER ko bonus milega, current user ko nahi)
     let referralBonusInfo = null;
@@ -222,7 +235,7 @@ export const approveDeposit = async (req, res) => {
 
     // Get updated deposit with populated fields
     const updatedDeposit = await Deposit.findById(depositId)
-      .populate('userId', 'username name email walletBalance tuftWalletBalance')
+      .populate('userId', 'username name email walletBalance tuftWalletBalance buy') // buy field bhi include kiya
       .populate('productId', 'title image status priceRange income handlingFee');
 
     // ✅ SUCCESS RESPONSE
@@ -234,7 +247,8 @@ export const approveDeposit = async (req, res) => {
         userWalletUpdate: {
           previousWalletBalance: previousWalletBalance,
           amountAdded: deposit.amount,
-          newWalletBalance: currentUser.walletBalance
+          newWalletBalance: currentUser.walletBalance,
+          buyCount: currentUser.buy // buy count bhi response me include kiya
         },
         referralBonus: referralBonusInfo // null if no referral
       }
@@ -275,6 +289,14 @@ export const rejectDeposit = async (req, res) => {
       });
     }
 
+    // 🔥 INCREMENT USER'S REJECTED COUNT
+    await User.findByIdAndUpdate(
+      deposit.userId,
+      { $inc: { rejected: 1 } }, // rejected count ko +1 kar do
+      { new: true, upsert: false }
+    );
+    console.log('📊 User rejected count incremented');
+
     // ✅ Update deposit status to rejected (NO wallet update)
     deposit.status = 'rejected';
     deposit.rejectedBy = rejectedBy;
@@ -285,14 +307,14 @@ export const rejectDeposit = async (req, res) => {
     console.log(`❌ Deposit ${depositId} rejected. Amount ${deposit.amount} NOT added to wallet.`);
 
     const updatedDeposit = await Deposit.findById(depositId)
-      .populate('userId', 'username name email tuftWalletBalance')
+      .populate('userId', 'username name email tuftWalletBalance rejected') // rejected field bhi include kiya
       .populate('productId', 'title image status priceRange income handlingFee');
 
     res.status(200).json({
       success: true,
       message: 'Deposit rejected. Amount not added to wallet.',
       data: updatedDeposit,
-      note: 'User wallet balance remains unchanged'
+      note: 'User wallet balance remains unchanged but rejected count incremented'
     });
 
   } catch (error) {

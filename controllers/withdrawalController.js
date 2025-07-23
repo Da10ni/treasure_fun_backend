@@ -167,11 +167,18 @@ const approveWithdrawal = async (req, res) => {
             });
         }
 
-        // Deduct amount from user's wallet balance
+        // Deduct amount from user's wallet balance & increment sell count
         const newBalance = currentBalance - withdrawal.amount;
-        await User.findByIdAndUpdate(withdrawal.userId._id, {
-            walletBalance: newBalance
-        });
+        const updatedUser = await User.findByIdAndUpdate(
+            withdrawal.userId._id, 
+            {
+                walletBalance: newBalance,
+                $inc: { sell: 1 } // 🔥 INCREMENT USER'S SELL COUNT
+            },
+            { new: true }
+        );
+
+        console.log(`📊 User sell count incremented to: ${updatedUser.sell}`);
 
         // Update withdrawal status
         withdrawal.status = 'completed';
@@ -180,12 +187,12 @@ const approveWithdrawal = async (req, res) => {
 
         // Populate details for response
         await withdrawal.populate([
-            { path: 'userId', select: 'name email walletBalance walletId' }
+            { path: 'userId', select: 'name email walletBalance walletId sell' } // sell field bhi include kiya
         ]);
 
         res.status(200).json({
             success: true,
-            message: `Withdrawal approved successfully. ${withdrawal.amount} deducted from user's wallet. New balance: ${newBalance}`,
+            message: `Withdrawal approved successfully. ${withdrawal.amount} deducted from user's wallet. New balance: ${newBalance}. Sell count: ${updatedUser.sell}`,
             data: withdrawal
         });
 

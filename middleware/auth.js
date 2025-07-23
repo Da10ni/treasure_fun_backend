@@ -98,11 +98,12 @@ export const authenticateAdmin = async (req, res, next) => {
     console.log("🔐 Admin Auth - Decoded token:", decoded);
 
     const adminId = decoded.userId || decoded.id;
+    console.log("Admin Id in middleWare", adminId)
 
     // Sirf Admin collection mein check karo
     const admin = await Admin.findById(adminId);
 
-    console.log("admin id check",adminId)
+    console.log("admin id check", adminId)
 
     if (!admin) {
       console.log(`❌ Admin with ID ${adminId} not found`);
