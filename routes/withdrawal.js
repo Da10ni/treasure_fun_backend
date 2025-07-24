@@ -46,7 +46,7 @@ router.put('/:id/reject',authenticateAdmin, rejectWithdrawal);
 // Get single withdrawal details - USER (own) or ADMIN (any)
 // GET /api/withdrawals/:id
 // Note: Controller should check if user is accessing their own withdrawal
-router.get('/:id', authenticateUser, getWithdrawalDetails);
+router.get('/:id', authenticateAdmin, getWithdrawalDetails);
 
 // Alternative: If you want admin to also access withdrawal details
 // You can create separate routes or handle in controller based on req.userType

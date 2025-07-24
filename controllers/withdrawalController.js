@@ -5,7 +5,7 @@ import { Withdrawal } from "../models/withdrawal.model.js";
 const createWithdrawalRequest = async (req, res) => {
     try {
         const { amount, walletId } = req.body;
-        const {id: userId} = req.params; // User ID params se aa rahi hai
+        const { id: userId } = req.params; // User ID params se aa rahi hai
 
         // Validate amount
         if (!amount || amount <= 0) {
@@ -34,7 +34,7 @@ const createWithdrawalRequest = async (req, res) => {
 
         // Check user wallet balance
         const userWalletBalance = user.walletBalance || 0;
-        
+
         // Check if user has 0 balance
         if (userWalletBalance <= 0) {
             return res.status(400).json({
@@ -86,7 +86,7 @@ const createWithdrawalRequest = async (req, res) => {
 const getAllWithdrawalRequests = async (req, res) => {
     try {
         const { status, page = 1, limit = 10 } = req.query;
-        
+
         // Build query
         let query = {};
         if (status) {
@@ -134,7 +134,7 @@ const approveWithdrawal = async (req, res) => {
         const { id } = req.params;
 
         const withdrawal = await Withdrawal.findById(id).populate('userId');
-        
+
         if (!withdrawal) {
             return res.status(404).json({
                 success: false,
@@ -170,7 +170,7 @@ const approveWithdrawal = async (req, res) => {
         // Deduct amount from user's wallet balance & increment sell count
         const newBalance = currentBalance - withdrawal.amount;
         const updatedUser = await User.findByIdAndUpdate(
-            withdrawal.userId._id, 
+            withdrawal.userId._id,
             {
                 walletBalance: newBalance,
                 $inc: { sell: 1 } // 🔥 INCREMENT USER'S SELL COUNT
@@ -213,7 +213,7 @@ const rejectWithdrawal = async (req, res) => {
         const { reason } = req.body;
 
         const withdrawal = await Withdrawal.findById(id);
-        
+
         if (!withdrawal) {
             return res.status(404).json({
                 success: false,
@@ -306,6 +306,7 @@ const getWithdrawalDetails = async (req, res) => {
     try {
         const { id } = req.params;
 
+
         const withdrawal = await Withdrawal.findById(id)
             .populate('userId', 'name email walletId');
 
@@ -316,7 +317,7 @@ const getWithdrawalDetails = async (req, res) => {
             });
         }
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: 'Withdrawal details retrieved successfully',
             data: withdrawal
