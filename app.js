@@ -29,6 +29,8 @@ app.use(
       "http://localhost:5176",
       "http://localhost:5177",
       "http://localhost:5178",
+      "https://treasure-fun-admin.vercel.app",
+      "https://treasure-fun-qo3t.vercel.app",
       "null",
     ], // Allow file:// protocol
     credentials: true,
