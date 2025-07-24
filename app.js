@@ -20,19 +20,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(
   cors({
-    origin: [
-      "http://localhost:3006",
-      "http://127.0.0.1:5500",
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:5175",
-      "http://localhost:5176",
-      "http://localhost:5177",
-      "http://localhost:5178",
-      "https://treasure-fun-admin.vercel.app",
-      "https://treasure-fun.vercel.app",
-      "null",
-    ], // Allow file:// protocol
+    origin: ["*"], // Allow file:// protocol
     credentials: true,
   })
 );
