@@ -11,7 +11,11 @@ import {
   getAllUsers,
   toggleUserStatus,
   checkAuth,
-  getMyDeposits
+  getMyDeposits,
+  sendPasswordResetCode,
+  verifyResetCode,
+  resetPassword,
+  changePassword
 } from '../controllers/authController.js';
 import { authenticateUser, authenticateAdmin } from '../middleware/auth.js'; 
 
@@ -25,6 +29,11 @@ router.post('/signup', signup);                                     // Public - 
 router.post('/login', login);                                       // Public - User login
 router.get('/referral/validate/:code', validateReferralCode);       // Public - Referral code validate
 
+// Password Reset Routes (Public)
+router.post('/password/forgot', sendPasswordResetCode);             // Public - Send password reset code
+router.post('/password/verify-code', verifyResetCode);              // Public - Verify reset code (optional)
+router.post('/password/reset', resetPassword);   
+
 // =============================================
 // USER-ONLY ROUTES (authenticateUser)
 // =============================================
@@ -34,6 +43,9 @@ router.post('/logout', authenticateUser, logout);                   // User logo
 router.put('/profile', authenticateUser, updateProfile);            // User apna profile update
 router.get('/deposits/:id', authenticateUser, getMyDeposits);       // User ke deposits (ID should match token user)
 router.get('/referrals', authenticateUser, getUserReferrals);       // User ke referrals
+
+// Password Change Route (Authenticated)
+router.post('/password/change', authenticateUser, changePassword);  // User - Change password
 
 // =============================================
 // ADMIN-ONLY ROUTES (authenticateAdmin)  

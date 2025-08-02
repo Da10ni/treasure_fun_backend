@@ -124,6 +124,30 @@ const referralCodeSchema = new mongoose.Schema({
   },
 });
 
+const passwordResetSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    lowercase: true,
+  },
+  code: {
+    type: String,
+    required: true,
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    expires: 600, // 10 minutes
+  },
+});
+
+
+export const PasswordResetCode = mongoose.model("PasswordResetCode", passwordResetSchema);
 export const ReferralCode = mongoose.model("ReferralCode", referralCodeSchema);
 
 userSchema.index({ username: 1 });
