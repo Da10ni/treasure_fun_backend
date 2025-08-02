@@ -391,7 +391,6 @@ export const sendReferralCodeEmail = async (
     console.log(`📧 Falling back to console logging for ${type}...`);
     console.log(`=== ${type.toUpperCase()} EMAIL FALLBACK ===`);
     console.log(`To: ${email}`);
-    console.log(`Subject: ${templates[type]?.subject || "Treasure Fun Code"}`);
     console.log(`Code: ${code}`);
     console.log(`Type: ${type}`);
     console.log(`This code will expire in 10 minutes.`);
