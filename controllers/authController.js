@@ -101,22 +101,21 @@ export const signup = async (req, res) => {
       password,
       confirmPassword,
       mobileNo,
-      emailVerificationCode,
       referredByCode,
       bankName,
       walletId,
     } = req.body;
-
-    // Validate input
+    
+    // Validate input (remove emailVerificationCode from validation)
     const errors = validateSignupInput(
       username,
       email,
       password,
       confirmPassword,
       mobileNo,
-      emailVerificationCode,
       referredByCode
     );
+    
     if (errors.length > 0) {
       return res.status(400).json({
         success: false,
@@ -124,22 +123,21 @@ export const signup = async (req, res) => {
         errors,
       });
     }
-
+    
     console.log(walletId, bankName);
-
-    // Verify email verification code
-    const validVerificationCode = await ReferralCode.findOne({
-      email: email.toLowerCase(),
-      code: emailVerificationCode.trim(),
-    });
-
-    if (!validVerificationCode) {
-      return res.status(400).json({
-        success: false,
-        message: "Email verification code is invalid or expired",
-      });
-    }
-
+    
+    // Remove email verification code check
+    // const validVerificationCode = await ReferralCode.findOne({
+    //   email: email.toLowerCase(),
+    //   code: emailVerificationCode.trim(),
+    // });
+    // if (!validVerificationCode) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Email verification code is invalid or expired",
+    //   });
+    // }
+    
     // Validate referral code if provided
     let referringUser = null;
     if (referredByCode && referredByCode.trim()) {
@@ -151,7 +149,7 @@ export const signup = async (req, res) => {
         });
       }
     }
-
+    
     // Check if user already exists with same username
     const existingUserByUsername = await User.findOne({ username });
     if (existingUserByUsername) {
@@ -160,7 +158,7 @@ export const signup = async (req, res) => {
         message: "Username already exists",
       });
     }
-
+    
     // Check if user already exists with same email
     const existingUserByEmail = await User.findOne({
       email: email.toLowerCase(),
@@ -171,7 +169,7 @@ export const signup = async (req, res) => {
         message: "Email already registered",
       });
     }
-
+    
     // Check if user already exists with same mobile number
     const existingUserByMobile = await User.findOne({ mobileNo });
     if (existingUserByMobile) {
@@ -180,10 +178,10 @@ export const signup = async (req, res) => {
         message: "Mobile number already registered",
       });
     }
-
+    
     // Generate unique referral code for new user
     const userReferralCode = await generateUniqueReferralCode();
-
+    
     // Create new user
     const user = new User({
       username: username.trim(),
@@ -196,9 +194,9 @@ export const signup = async (req, res) => {
       referredByCode: referredByCode ? referredByCode.trim() : null,
       referredByUser: referringUser ? referringUser._id : null,
     });
-
+    
     await user.save();
-
+    
     // Update referring user if exists
     if (referringUser) {
       await User.findByIdAndUpdate(referringUser._id, {
@@ -206,13 +204,13 @@ export const signup = async (req, res) => {
         $inc: { referralCount: 1 },
       });
     }
-
-    // Delete the used email verification code
-    await ReferralCode.deleteOne({ _id: validVerificationCode._id });
-
+    
+    // Remove the email verification code deletion
+    // await ReferralCode.deleteOne({ _id: validVerificationCode._id });
+    
     // Generate token
     const token = generateToken(user._id);
-
+    
     res.status(201).json({
       success: true,
       message: "User registered successfully",

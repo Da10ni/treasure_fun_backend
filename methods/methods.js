@@ -106,19 +106,6 @@ export const validateSignupInput = (
     });
   }
 
-  // Email verification code validation
-  if (!emailVerificationCode || !emailVerificationCode.trim()) {
-    errors.push({
-      field: "emailVerificationCode",
-      message: "Email verification code is required",
-    });
-  } else if (!/^[0-9]{6}$/.test(emailVerificationCode.trim())) {
-    errors.push({
-      field: "emailVerificationCode",
-      message: "Email verification code must be 6 digits",
-    });
-  }
-
   // Referral code validation (optional)
   if (referredByCode && referredByCode.trim()) {
     if (!/^[A-Z0-9]{8}$/.test(referredByCode.trim())) {
