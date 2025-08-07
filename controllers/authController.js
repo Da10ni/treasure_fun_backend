@@ -1,4 +1,4 @@
-import User, { ReferralCode } from "../models/User.js";
+import User, { PasswordResetCode, ReferralCode } from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { sendReferralCodeEmail } from "../services/emailService.js";
 import {
@@ -8,6 +8,7 @@ import {
   validateLoginInput,
   validateSignupInput,
 } from "../methods/methods.js";
+import Deposit from "../models/deposit.model.js";
 // Generate and send email verification code
 export const generateReferralCodeForEmail = async (req, res) => {
   try {
@@ -320,8 +321,10 @@ export const login = async (req, res) => {
       });
     }
 
-    // Find user by username
-    const user = await User.findByUsername(username.trim());
+    const user = await User.findOne({
+      $or: [{ username: username.trim() }, { email: username.trim() }],
+    });
+    console.log(user);
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -569,23 +572,391 @@ export const updateProfile = async (req, res) => {
 };
 
 // check auth
-export const checkAuth = async (req, res) => {
+export const checkAuth = async (_, res) => {
   try {
     res.status(200).json({
       success: true,
       message: "User is authenticated",
-      data: {
-        userId: req.userId,
-        username: req.user.username,
-        email: req.user.email,
-        isActive: req.user.isActive,
-      },
     });
   } catch (error) {
     console.error("Auth check error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+};
+
+// Simple version - just get all approved deposits for user
+export const getMyDeposits = async (req, res) => {
+  try {
+    const { id: userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    // Get only approved deposits
+    const approvedDeposits = await Deposit.find({
+      userId: userId,
+      status: "approved",
+    })
+      .populate("productId", "title image priceRange")
+      .sort({ updatedAt: -1 })
+      .select("amount updatedAt productId createdAt referredBy attachment");
+
+    // Calculate total
+    const totalAmount = approvedDeposits.reduce(
+      (sum, deposit) => sum + deposit.amount,
+      0
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Found ${approvedDeposits.length} approved deposits`,
+      data: {
+        approvedDeposits,
+        totalCount: approvedDeposits.length,
+        totalAmount: totalAmount,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching approved deposits:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching approved deposits",
+      error: error.message,
+    });
+  }
+};
+
+export const sendPasswordResetCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    console.log("Password reset code request for:", email);
+
+    // Validate email
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address",
+      });
+    }
+
+    // Check if user exists
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account found with this email address",
+      });
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: "Account is deactivated. Please contact support.",
+      });
+    }
+
+    // Generate reset code
+    const resetCode = generateEmailVerificationCode();
+    console.log("Generated password reset code:", resetCode);
+
+    // Delete any existing reset codes for this email
+    await PasswordResetCode.deleteMany({ email: email.toLowerCase() });
+
+    // Save new reset code
+    const passwordResetCode = new PasswordResetCode({
+      email: email.toLowerCase(),
+      code: resetCode,
+      userId: user._id,
+    });
+
+    await passwordResetCode.save();
+    console.log("Password reset code saved to database");
+
+    // Send email with 'password_reset' type
+    console.log("Attempting to send password reset email...");
+    const emailResult = await sendReferralCodeEmail(
+      email,
+      resetCode,
+      "password_reset"
+    );
+    console.log("Email result:", emailResult);
+
+    if (emailResult.success) {
+      const response = {
+        success: true,
+        message: emailResult.simulated
+          ? `Password reset code generated successfully.`
+          : `Password reset code sent to ${email}. Please check your email.`,
+      };
+
+      // Include code in development for debugging
+      if (process.env.NODE_ENV === "development") {
+        response.devCode = resetCode;
+        response.debugInfo = emailResult;
+      }
+
+      res.status(200).json(response);
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Failed to send password reset code. Please try again.",
+        ...(process.env.NODE_ENV === "development" && {
+          debugInfo: emailResult,
+        }),
+      });
+    }
+  } catch (error) {
+    console.error("Send password reset code error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send password reset code",
+      ...(process.env.NODE_ENV === "development" && { error: error.message }),
+    });
+  }
+};
+
+// 2. Verify Reset Code (Optional - for frontend validation)
+export const verifyResetCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and reset code are required",
+      });
+    }
+
+    const resetCodeDoc = await PasswordResetCode.findOne({
+      email: email.toLowerCase(),
+      code: code.trim(),
+    });
+
+    if (!resetCodeDoc) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset code",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Reset code is valid",
+    });
+  } catch (error) {
+    console.error("Verify reset code error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to verify reset code",
+    });
+  }
+};
+
+// 3. Reset Password
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword, confirmPassword } = req.body;
+
+    // Validate input
+    const errors = [];
+
+    if (!email || !email.trim()) {
+      errors.push({ field: "email", message: "Email is required" });
+    }
+
+    if (!code || !code.trim()) {
+      errors.push({ field: "code", message: "Reset code is required" });
+    }
+
+    if (!newPassword) {
+      errors.push({
+        field: "newPassword",
+        message: "New password is required",
+      });
+    }
+
+    if (newPassword && newPassword.length < 6) {
+      errors.push({
+        field: "newPassword",
+        message: "Password must be at least 6 characters long",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      errors.push({
+        field: "confirmPassword",
+        message: "Passwords do not match",
+      });
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors,
+      });
+    }
+
+    // Verify reset code
+    const resetCodeDoc = await PasswordResetCode.findOne({
+      email: email.toLowerCase(),
+      code: code.trim(),
+    });
+
+    if (!resetCodeDoc) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset code",
+      });
+    }
+
+    // Get user
+    const user = await User.findById(resetCodeDoc.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: "Account is deactivated. Please contact support.",
+      });
+    }
+
+    // Update password
+    user.password = newPassword; // Pre-save hook will hash it
+    await user.save();
+
+    // Delete the used reset code
+    await PasswordResetCode.deleteOne({ _id: resetCodeDoc._id });
+
+    // Generate new token for auto login
+    const token = generateToken(user._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successful",
+      data: {
+        user: user.toJSON(),
+        token, // Auto login user
+      },
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to reset password",
+      ...(process.env.NODE_ENV === "development" && { error: error.message }),
+    });
+  }
+};
+
+// 4. Change Password (for logged in users)
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    const userId = req.userId; // From auth middleware
+
+    // Validate input
+    const errors = [];
+
+    if (!currentPassword) {
+      errors.push({
+        field: "currentPassword",
+        message: "Current password is required",
+      });
+    }
+
+    if (!newPassword) {
+      errors.push({
+        field: "newPassword",
+        message: "New password is required",
+      });
+    }
+
+    if (newPassword && newPassword.length < 6) {
+      errors.push({
+        field: "newPassword",
+        message: "Password must be at least 6 characters long",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      errors.push({
+        field: "confirmPassword",
+        message: "Passwords do not match",
+      });
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors,
+      });
+    }
+
+    // Get user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect",
+      });
+    }
+
+    // Check if new password is different from current
+    const isSamePassword = await user.comparePassword(newPassword);
+    if (isSamePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password must be different from current password",
+      });
+    }
+
+    // Update password
+    user.password = newPassword; // Pre-save hook will hash it
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to change password",
+      ...(process.env.NODE_ENV === "development" && { error: error.message }),
     });
   }
 };

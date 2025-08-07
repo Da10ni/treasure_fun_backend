@@ -1,6 +1,6 @@
 import { generateToken } from "../methods/methods.js";
 import Admin from "../models/Admin.js";
-import { ReferralCode } from "../models/User.js";
+import User, { ReferralCode } from "../models/User.js";
 
 const signup = async (req, res) => {
   try {
@@ -183,6 +183,8 @@ const getProfile = async (req, res) => {
   try {
     const { id: userId } = req.params;
 
+    console.log(userId)
+
     // Validate if userId is provided
     if (!userId) {
       return res.status(400).json({
@@ -224,4 +226,34 @@ const getProfile = async (req, res) => {
   }
 };
 
-export { signup, login, logout, updateProfile, getProfile };
+const getActiveUsers = async (_, res) => {
+  try {
+    const activeUsers = await User.find({ isActive: true }).select("-password");
+
+    if (activeUsers.length === 0) {
+      return res.status(404).json({
+        message: "No active users found",
+        success: false,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Active users retrieved successfully",
+      data: {
+        users: activeUsers,
+      },
+    });
+
+  } catch (error) {
+    console.error("Error fetching active users:", error.message);  // ✅ logging
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message, // optional for debugging
+    });
+  }
+};
+
+
+export { signup, login, logout, updateProfile, getProfile, getActiveUsers };

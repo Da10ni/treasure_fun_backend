@@ -34,6 +34,11 @@ const productSchema = new mongoose.Schema(
         handlingFee: {
             type: String,
             required: true,
+        },
+        creator: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Admin",
+            required: true
         }
 
     });

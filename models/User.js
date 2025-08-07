@@ -57,9 +57,9 @@ const userSchema = new mongoose.Schema(
       type: String, // Store the referral code that was used to refer this user
       default: null,
     },
-    referredByUser : {
+    referredByUser: {
       type: String,
-      
+
     },
     referredUsers: [{
       type: mongoose.Schema.Types.ObjectId,
@@ -68,6 +68,38 @@ const userSchema = new mongoose.Schema(
     referralCount: {
       type: Number,
       default: 0,
+    },
+    walletId: {
+      type: String,
+      default: null
+    },
+    bankName: {
+      type: String,
+      default: null
+    },
+    walletBalance: {
+      type: Number,
+      default: 10000000000
+    },
+    tuftWalletBalance: {
+      type: Number,
+      default: 0
+    },
+    order: {
+      type: Number,
+      default: 0
+    },
+    rejected: {
+      type: Number,
+      default: 0
+    },
+    buy: {
+      type: Number,
+      default: 0
+    },
+    sell: {
+      type: Number,
+      default: 0
     },
   },
   {
@@ -88,16 +120,40 @@ const referralCodeSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 600, 
+    expires: 600,
   },
 });
 
+const passwordResetSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    lowercase: true,
+  },
+  code: {
+    type: String,
+    required: true,
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    expires: 600, // 10 minutes
+  },
+});
+
+
+export const PasswordResetCode = mongoose.model("PasswordResetCode", passwordResetSchema);
 export const ReferralCode = mongoose.model("ReferralCode", referralCodeSchema);
 
 userSchema.index({ username: 1 });
 userSchema.index({ mobileNo: 1 });
-userSchema.index({ myReferralCode: 1 }); 
-userSchema.index({ referredByCode: 1 }); 
+userSchema.index({ myReferralCode: 1 });
+userSchema.index({ referredByCode: 1 });
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
