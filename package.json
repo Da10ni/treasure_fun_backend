@@ -41,7 +41,7 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.5.0",
-    "multer": "^2.0.1",
+    "multer": "^2.0.2",
     "nodemailer": "^6.9.7",
     "validator": "^13.11.0"
   },
