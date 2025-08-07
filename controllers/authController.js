@@ -31,13 +31,13 @@ export const generateReferralCodeForEmail = async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        message: "Email already registered",
-      });
-    }
+    // const existingUser = await User.findOne({ email: email.toLowerCase() });
+    // if (existingUser) {
+    //   return res.status(409).json({
+    //     success: false,
+    //     message: "Email already registered",
+    //   });
+    // }
 
     const code = generateEmailVerificationCode();
     console.log("Generated email verification code:", code);
@@ -102,7 +102,9 @@ export const signup = async (req, res) => {
       confirmPassword,
       mobileNo,
       emailVerificationCode,
-      referredByCode, // Optional referral code
+      referredByCode,
+      bankName,
+      walletId,
     } = req.body;
 
     // Validate input
@@ -122,6 +124,8 @@ export const signup = async (req, res) => {
         errors,
       });
     }
+
+    console.log(walletId, bankName);
 
     // Verify email verification code
     const validVerificationCode = await ReferralCode.findOne({
@@ -186,6 +190,8 @@ export const signup = async (req, res) => {
       email: email.toLowerCase(),
       password,
       mobileNo: mobileNo.trim(),
+      bankName,
+      walletId,
       myReferralCode: userReferralCode,
       referredByCode: referredByCode ? referredByCode.trim() : null,
       referredByUser: referringUser ? referringUser._id : null,
