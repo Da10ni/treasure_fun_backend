@@ -502,30 +502,34 @@ export const logout = async (req, res) => {
   }
 };
 
-// Update user profile (unchanged)
+// Update user profile
 export const updateProfile = async (req, res) => {
   try {
-    const { username, mobileNo } = req.body;
+    const { username, mobileNo, walletId, bankName } = req.body;
     const userId = req.userId;
 
-    // Validate input
+    // Input Validation
     const errors = [];
-    if (username && (username.length < 3 || username.length > 20)) {
-      errors.push({
-        field: "username",
-        message: "Username must be between 3 and 20 characters",
-      });
+
+    if (username) {
+      if (username.length < 3 || username.length > 20) {
+        errors.push({
+          field: "username",
+          message: "Username must be between 3 and 20 characters",
+        });
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        errors.push({
+          field: "username",
+          message: "Username can only contain letters, numbers, and underscores",
+        });
+      }
     }
-    if (username && !/^[a-zA-Z0-9_]+$/.test(username)) {
-      errors.push({
-        field: "username",
-        message: "Username can only contain letters, numbers, and underscores",
-      });
-    }
+
     if (mobileNo && !/^[0-9]{10,15}$/.test(mobileNo)) {
       errors.push({
         field: "mobileNo",
-        message: "Please enter a valid mobile number (10-15 digits)",
+        message: "Please enter a valid mobile number (10–15 digits)",
       });
     }
 
@@ -539,7 +543,11 @@ export const updateProfile = async (req, res) => {
 
     // Check if username or mobile number already exists (excluding current user)
     const existingUser = await User.findOne({
-      $and: [{ _id: { $ne: userId } }, { $or: [{ username }, { mobileNo }] }],
+      _id: { $ne: userId },
+      $or: [
+        ...(username ? [{ username }] : []),
+        ...(mobileNo ? [{ mobileNo }] : []),
+      ],
     });
 
     if (existingUser) {
@@ -549,17 +557,20 @@ export const updateProfile = async (req, res) => {
       });
     }
 
-    // Update user
+    // Prepare update object
     const updateData = {};
     if (username) updateData.username = username.trim();
     if (mobileNo) updateData.mobileNo = mobileNo.trim();
+    if (walletId) updateData.walletId = walletId.trim();
+    if (bankName) updateData.bankName = bankName.trim();
 
+    // Update user document
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
       new: true,
       runValidators: true,
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Profile updated successfully",
       data: {
@@ -568,12 +579,13 @@ export const updateProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("Update profile error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
   }
 };
+
 
 // check auth
 export const checkAuth = async (_, res) => {
