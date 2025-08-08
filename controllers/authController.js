@@ -102,10 +102,10 @@ export const signup = async (req, res) => {
       confirmPassword,
       mobileNo,
       referredByCode,
-      bankName,
-      walletId,
+      walletId, // TRC-20 wallet
+      BEP, // BEP-20 wallet (matching schema field name)
     } = req.body;
-    
+
     // Validate input (remove emailVerificationCode from validation)
     const errors = validateSignupInput(
       username,
@@ -115,7 +115,7 @@ export const signup = async (req, res) => {
       mobileNo,
       referredByCode
     );
-    
+
     if (errors.length > 0) {
       return res.status(400).json({
         success: false,
@@ -123,21 +123,10 @@ export const signup = async (req, res) => {
         errors,
       });
     }
-    
-    console.log(walletId, bankName);
-    
-    // Remove email verification code check
-    // const validVerificationCode = await ReferralCode.findOne({
-    //   email: email.toLowerCase(),
-    //   code: emailVerificationCode.trim(),
-    // });
-    // if (!validVerificationCode) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Email verification code is invalid or expired",
-    //   });
-    // }
-    
+
+    console.log("TRC-20 Wallet:", walletId);
+    console.log("BEP-20 Wallet:", BEP);
+
     // Validate referral code if provided
     let referringUser = null;
     if (referredByCode && referredByCode.trim()) {
@@ -149,7 +138,7 @@ export const signup = async (req, res) => {
         });
       }
     }
-    
+
     // Check if user already exists with same username
     const existingUserByUsername = await User.findOne({ username });
     if (existingUserByUsername) {
@@ -158,7 +147,7 @@ export const signup = async (req, res) => {
         message: "Username already exists",
       });
     }
-    
+
     // Check if user already exists with same email
     const existingUserByEmail = await User.findOne({
       email: email.toLowerCase(),
@@ -169,7 +158,7 @@ export const signup = async (req, res) => {
         message: "Email already registered",
       });
     }
-    
+
     // Check if user already exists with same mobile number
     const existingUserByMobile = await User.findOne({ mobileNo });
     if (existingUserByMobile) {
@@ -178,25 +167,25 @@ export const signup = async (req, res) => {
         message: "Mobile number already registered",
       });
     }
-    
+
     // Generate unique referral code for new user
     const userReferralCode = await generateUniqueReferralCode();
-    
+
     // Create new user
     const user = new User({
       username: username.trim(),
       email: email.toLowerCase(),
       password,
       mobileNo: mobileNo.trim(),
-      bankName,
-      walletId,
+      walletId, // TRC-20 wallet
+      BEP, // BEP-20 wallet (matching schema field name)
       myReferralCode: userReferralCode,
       referredByCode: referredByCode ? referredByCode.trim() : null,
       referredByUser: referringUser ? referringUser._id : null,
     });
-    
+
     await user.save();
-    
+
     // Update referring user if exists
     if (referringUser) {
       await User.findByIdAndUpdate(referringUser._id, {
@@ -204,13 +193,10 @@ export const signup = async (req, res) => {
         $inc: { referralCount: 1 },
       });
     }
-    
-    // Remove the email verification code deletion
-    // await ReferralCode.deleteOne({ _id: validVerificationCode._id });
-    
+
     // Generate token
     const token = generateToken(user._id);
-    
+
     res.status(201).json({
       success: true,
       message: "User registered successfully",
@@ -505,7 +491,7 @@ export const logout = async (req, res) => {
 // Update user profile
 export const updateProfile = async (req, res) => {
   try {
-    const { username, mobileNo, walletId, bankName } = req.body;
+    const { username, mobileNo, walletId, BEP } = req.body;
     const userId = req.userId;
 
     // Input Validation
@@ -521,7 +507,8 @@ export const updateProfile = async (req, res) => {
       if (!/^[a-zA-Z0-9_]+$/.test(username)) {
         errors.push({
           field: "username",
-          message: "Username can only contain letters, numbers, and underscores",
+          message:
+            "Username can only contain letters, numbers, and underscores",
         });
       }
     }
@@ -561,8 +548,8 @@ export const updateProfile = async (req, res) => {
     const updateData = {};
     if (username) updateData.username = username.trim();
     if (mobileNo) updateData.mobileNo = mobileNo.trim();
-    if (walletId) updateData.walletId = walletId.trim();
-    if (bankName) updateData.bankName = bankName.trim();
+    if (walletId) updateData.walletId = walletId.trim(); // TRC-20
+    if (BEP) updateData.BEP = BEP.trim(); // ✅ BEP-20 added
 
     // Update user document
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
@@ -585,7 +572,6 @@ export const updateProfile = async (req, res) => {
     });
   }
 };
-
 
 // check auth
 export const checkAuth = async (_, res) => {
