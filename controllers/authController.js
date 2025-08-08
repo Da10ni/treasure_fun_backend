@@ -9,6 +9,7 @@ import {
   validateSignupInput,
 } from "../methods/methods.js";
 import Deposit from "../models/deposit.model.js";
+
 // Generate and send email verification code
 export const generateReferralCodeForEmail = async (req, res) => {
   try {
