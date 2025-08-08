@@ -32,6 +32,8 @@ app.use(
       "http://localhost:5178",
       "http://localhost:5179",
       "http://localhost:5180",
+      "https://treasure-fun.vercel.app",
+      "https://treasure-fun-admin.vercel.app",
       "null",
     ],
     credentials: true,
