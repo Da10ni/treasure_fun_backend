@@ -492,12 +492,11 @@ export const logout = async (req, res) => {
 // Update user profile
 export const updateProfile = async (req, res) => {
   try {
-    const { username, mobileNo, walletId, BEP } = req.body;
+    const { username, mobileNo, walletId, BEP, email, bankName } = req.body;
     const userId = req.userId;
-
+    
     // Input Validation
     const errors = [];
-
     if (username) {
       if (username.length < 3 || username.length > 20) {
         errors.push({
@@ -513,14 +512,12 @@ export const updateProfile = async (req, res) => {
         });
       }
     }
-
     if (mobileNo && !/^[0-9]{10,15}$/.test(mobileNo)) {
       errors.push({
         field: "mobileNo",
         message: "Please enter a valid mobile number (10–15 digits)",
       });
     }
-
     if (errors.length > 0) {
       return res.status(400).json({
         success: false,
@@ -537,7 +534,7 @@ export const updateProfile = async (req, res) => {
         ...(mobileNo ? [{ mobileNo }] : []),
       ],
     });
-
+    
     if (existingUser) {
       return res.status(409).json({
         success: false,
@@ -548,9 +545,15 @@ export const updateProfile = async (req, res) => {
     // Prepare update object
     const updateData = {};
     if (username) updateData.username = username.trim();
+    if (email) updateData.email = email.trim();
     if (mobileNo) updateData.mobileNo = mobileNo.trim();
     if (walletId) updateData.walletId = walletId.trim(); // TRC-20
-    if (BEP) updateData.BEP = BEP.trim(); // ✅ BEP-20 added
+    if (BEP) updateData.BEP = BEP.trim(); // BEP-20
+    if (bankName) updateData.bankName = bankName.trim();
+
+    // 🔥 NEW: Set freeze status and timestamp
+    updateData.isFreezed = true;
+    updateData.freezeTimestamp = new Date(); // Store when freeze started
 
     // Update user document
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
@@ -560,7 +563,7 @@ export const updateProfile = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Profile updated successfully",
+      message: "Profile updated successfully. Withdrawals disabled for 72 hours.",
       data: {
         user: updatedUser.toJSON(),
       },
@@ -572,6 +575,96 @@ export const updateProfile = async (req, res) => {
       message: "Internal server error",
     });
   }
+};
+
+// 🔥 NEW: Function to unfreeze users whose 72-hour period has ended
+export const checkAndUnfreezeUsers = async () => {
+  try {
+    const seventyTwoHoursAgo = new Date(Date.now() - (72 * 60 * 60 * 1000));
+    
+    const result = await User.updateMany(
+      {
+        isFreezed: true,
+        freezeTimestamp: { $lt: seventyTwoHoursAgo }
+      },
+      {
+        $set: { isFreezed: false },
+        $unset: { freezeTimestamp: "" }
+      }
+    );
+    
+    console.log(`Unfroze ${result.modifiedCount} users whose freeze period expired`);
+    return result.modifiedCount;
+  } catch (error) {
+    console.error("Error unfreezing users:", error);
+  }
+};
+
+// 🔥 NEW: API endpoint to manually check user freeze status
+export const checkUserFreezeStatus = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    let freezeStatus = {
+      isFreezed: user.isFreezed,
+      timeRemaining: 0,
+      canWithdraw: !user.isFreezed
+    };
+
+    if (user.isFreezed && user.freezeTimestamp) {
+      const currentTime = new Date();
+      const freezeTime = new Date(user.freezeTimestamp);
+      const timePassed = currentTime - freezeTime;
+      const seventyTwoHours = 72 * 60 * 60 * 1000;
+      const timeRemaining = seventyTwoHours - timePassed;
+
+      if (timeRemaining <= 0) {
+        // Freeze period has ended, unfreeze the user
+        user.isFreezed = false;
+        user.freezeTimestamp = undefined;
+        await user.save();
+        
+        freezeStatus = {
+          isFreezed: false,
+          timeRemaining: 0,
+          canWithdraw: true
+        };
+      } else {
+        freezeStatus = {
+          isFreezed: true,
+          timeRemaining: timeRemaining,
+          canWithdraw: false,
+          freezeStartTime: user.freezeTimestamp
+        };
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: freezeStatus
+    });
+  } catch (error) {
+    console.error("Check freeze status error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
+
+// 🔥 NEW: Cron job function (call this every hour)
+export const scheduledUnfreezeCheck = () => {
+  // Run every hour to check for expired freezes
+  setInterval(checkAndUnfreezeUsers, 60 * 60 * 1000); // 1 hour
+  console.log("Scheduled unfreeze checker started - runs every hour");
 };
 
 // check auth

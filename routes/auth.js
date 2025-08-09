@@ -15,7 +15,8 @@ import {
   sendPasswordResetCode,
   verifyResetCode,
   resetPassword,
-  changePassword
+  changePassword,
+  checkAndUnfreezeUsers
 } from '../controllers/authController.js';
 import { authenticateUser, authenticateAdmin } from '../middleware/auth.js'; 
 
@@ -32,7 +33,23 @@ router.get('/referral/validate/:code', validateReferralCode);       // Public - 
 // Password Reset Routes (Public)
 router.post('/password/forgot', sendPasswordResetCode);             // Public - Send password reset code
 router.post('/password/verify-code', verifyResetCode);              // Public - Verify reset code (optional)
-router.post('/password/reset', resetPassword);   
+router.post('/password/reset', resetPassword); 
+router.post('/admin/unfreeze-expired', authenticateUser, async (req, res) => {
+  try {
+    const unfreezeCount = await checkAndUnfreezeUsers();
+    res.status(200).json({
+      success: true,
+      message: `Successfully unfroze ${unfreezeCount} users`,
+      unfrozeCount: unfreezeCount
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to unfreeze users',
+      error: error.message
+    });
+  }
+});
 
 // =============================================
 // USER-ONLY ROUTES (authenticateUser)

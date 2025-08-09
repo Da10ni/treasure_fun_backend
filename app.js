@@ -4,11 +4,13 @@ import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
-import productRoutes from "./routes/product.js"
-import depositRoutes from "./routes/deposit.js"
-import withdrawalRoutes from './routes/withdrawal.js';
-import referralsRoutes from './routes/referral.js';
-import heroImageRoutes from './routes/heroImage.js';
+import productRoutes from "./routes/product.js";
+import depositRoutes from "./routes/deposit.js";
+import withdrawalRoutes from "./routes/withdrawal.js";
+import referralsRoutes from "./routes/referral.js";
+import heroImageRoutes from "./routes/heroImage.js";
+import cron from "node-cron"
+import { checkAndUnfreezeUsers } from "./controllers/authController.js";
 
 // import stakeRoutes from "./routes/stakes.js";
 
@@ -81,11 +83,20 @@ mongoose.connection.on("error", (error) => {
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/products", productRoutes)
-app.use("/api/deposits", depositRoutes)
-app.use("/api/withdrawals", withdrawalRoutes)
-app.use("/api/referrals", referralsRoutes)
-app.use("/api/hero-image", heroImageRoutes)
+app.use("/api/products", productRoutes);
+app.use("/api/deposits", depositRoutes);
+app.use("/api/withdrawals", withdrawalRoutes);
+app.use("/api/referrals", referralsRoutes);
+app.use("/api/hero-image", heroImageRoutes);
+cron.schedule("0 * * * *", async () => {
+  console.log("🔄 Running scheduled user unfreeze check...");
+  try {
+    const unfrozeCount = await checkAndUnfreezeUsers();
+    console.log(`✅ Scheduled check completed: ${unfrozeCount} users unfroze`);
+  } catch (error) {
+    console.error("❌ Error in scheduled unfreeze check:", error);
+  }
+});
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
