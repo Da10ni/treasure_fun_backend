@@ -1,22 +1,44 @@
 import { productModel } from "../models/Product.js";
+import { uploadToCloudinary } from "../services/cloudinaryService.js";
 
 // Add a new product
 export const addProduct = async (req, res) => {
     try {
-        const { title, image, status, priceRange, income, handlingFee } = req.body;
+        const { title, status, priceRange, income, handlingFee } = req.body;
         const creatorId = req.userId;
-        console.log("creatorId", creatorId);
-        // return
+        const imageFile = req.file;
+        
+        console.log("check image file:", imageFile);
+        
         // Validate required fields
-        if (!title || !image || !status || !priceRange || !income || !handlingFee) {
+        if (!title || !status || !priceRange || !income || !handlingFee) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are required"
             });
         }
 
+        // Validate image file
+        if (!imageFile) {
+            return res.status(400).json({
+                success: false,
+                message: "Product image is required"
+            });
+        }
+
+        // Parse priceRange if it's a string (comes from FormData as JSON string)
+        let parsedPriceRange;
+        try {
+            parsedPriceRange = typeof priceRange === 'string' ? JSON.parse(priceRange) : priceRange;
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid price range format"
+            });
+        }
+
         // Validate priceRange structure
-        if (!priceRange.min || !priceRange.max) {
+        if (!parsedPriceRange.min || !parsedPriceRange.max) {
             return res.status(400).json({
                 success: false,
                 message: "Price range must include both min and max values"
@@ -24,23 +46,39 @@ export const addProduct = async (req, res) => {
         }
 
         // Validate that min is less than max
-        if (priceRange.min >= priceRange.max) {
+        if (Number(parsedPriceRange.min) >= Number(parsedPriceRange.max)) {
             return res.status(400).json({
                 success: false,
                 message: "Minimum price must be less than maximum price"
             });
         }
 
+        // Upload image to Cloudinary
+        let imageUrl;
+        try {
+            console.log("Uploading image to Cloudinary...");
+            const uploadResult = await uploadToCloudinary(imageFile, 'products');
+            imageUrl = uploadResult.url;
+            console.log("Image uploaded successfully:", imageUrl);
+        } catch (error) {
+            console.error("Cloudinary upload error:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Failed to upload image",
+                error: error.message
+            });
+        }
+
         // Create new product
         const newProduct = new productModel({
             title,
-            image,
+            image: imageUrl, // Set the Cloudinary URL
             status,
             priceRange: {
-                min: priceRange.min,
-                max: priceRange.max
+                min: Number(parsedPriceRange.min),
+                max: Number(parsedPriceRange.max)
             },
-            income,
+            income: Number(income),
             handlingFee,
             creator: creatorId
         });

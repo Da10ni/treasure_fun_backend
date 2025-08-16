@@ -4,7 +4,9 @@ const HeroImageSchema = new Schema(
   {
     image: {
       type: String,
-      required: true,
+    },
+    video: {
+      type: String,
     },
     userId: {
       type: mongoose.Schema.ObjectId,
@@ -16,5 +18,5 @@ const HeroImageSchema = new Schema(
   }
 );
 
-
-export const heroImageModel = mongoose.models.heroimages || mongoose.model("heroimage",HeroImageSchema) 
+export const heroImageModel =
+  mongoose.models.heroimages || mongoose.model("heroimage", HeroImageSchema);

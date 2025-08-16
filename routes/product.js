@@ -7,6 +7,7 @@ import {
   getProductById 
 } from "../controllers/productController.js";
 import { authenticateAdmin, authenticateUser } from "../middleware/auth.js";
+import { upload } from "../middleware/multer.js";
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ router.get("/products/:id", getProductById);
 
 // Add new product - ADMIN ONLY
 // POST /api/products/addproducts
-router.post("/addproducts", authenticateAdmin, addProduct);
+router.post("/addproducts", authenticateAdmin,upload.single("image"), addProduct);
 
 // Get all products (including inactive) - ADMIN ONLY
 // GET /api/products/allproducts
