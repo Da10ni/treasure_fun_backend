@@ -9,6 +9,7 @@ import depositRoutes from "./routes/deposit.js";
 import withdrawalRoutes from "./routes/withdrawal.js";
 import referralsRoutes from "./routes/referral.js";
 import heroImageRoutes from "./routes/heroImage.js";
+import notificationRoutes from "./routes/notification.js";
 import cron from "node-cron"
 import { checkAndUnfreezeUsers } from "./controllers/authController.js";
 
@@ -88,6 +89,7 @@ app.use("/api/deposits", depositRoutes);
 app.use("/api/withdrawals", withdrawalRoutes);
 app.use("/api/referrals", referralsRoutes);
 app.use("/api/hero-image", heroImageRoutes);
+app.use("/api/notification", notificationRoutes);
 cron.schedule("0 * * * *", async () => {
   console.log("🔄 Running scheduled user unfreeze check...");
   try {
