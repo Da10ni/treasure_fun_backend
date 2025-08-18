@@ -93,7 +93,67 @@ export const generateReferralCodeForEmail = async (req, res) => {
   }
 };
 
-// Sign up new user
+const autoUpdateUserLevel = async (userId) => {
+  try {
+    console.log(`🔄 Auto-updating level for user: ${userId}`);
+
+    // Find user with populated referredUsers
+    const user = await User.findById(userId).populate("referredUsers");
+
+    if (!user) {
+      console.error(`❌ User not found: ${userId}`);
+      return null;
+    }
+
+    // Count actual referrals
+    const currentReferralCount = user.referredUsers
+      ? user.referredUsers.length
+      : 0;
+
+    // Get current level
+    const currentLevel = user.levels || 1;
+
+    // Calculate new level
+    const calculatedLevel = calculateUserLevel(currentReferralCount);
+
+    console.log(
+      `📊 ${user.username}: ${currentReferralCount} referrals, Level ${currentLevel} → ${calculatedLevel}`
+    );
+
+    // Update level if changed
+    if (calculatedLevel !== currentLevel) {
+      user.levels = calculatedLevel;
+      await user.save();
+
+      console.log(
+        `✅ Level auto-updated: ${user.username} is now Level ${calculatedLevel}`
+      );
+
+      return {
+        levelUpdated: true,
+        oldLevel: currentLevel,
+        newLevel: calculatedLevel,
+        referralCount: currentReferralCount,
+        username: user.username,
+      };
+    } else {
+      console.log(
+        `ℹ️ Level unchanged: ${user.username} remains at Level ${currentLevel}`
+      );
+      return {
+        levelUpdated: false,
+        currentLevel: currentLevel,
+        referralCount: currentReferralCount,
+        username: user.username,
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error in auto level update:", error);
+    return null;
+  }
+};
+
+// Updated signup function
 export const signup = async (req, res) => {
   try {
     const {
@@ -188,24 +248,50 @@ export const signup = async (req, res) => {
     await user.save();
 
     // Update referring user if exists
+    let levelUpdateResult = null;
     if (referringUser) {
+      // Update referral data
       await User.findByIdAndUpdate(referringUser._id, {
         $push: { referredUsers: user._id },
         $inc: { referralCount: 1 },
       });
+
+      console.log(`🎯 New referral added for ${referringUser.username}`);
+
+      // 🔥 AUTO UPDATE LEVEL - Yahan magic hota hai!
+      levelUpdateResult = await autoUpdateUserLevel(referringUser._id);
+
+      if (levelUpdateResult && levelUpdateResult.levelUpdated) {
+        console.log(
+          `🎉 LEVEL UP! ${referringUser.username}: Level ${levelUpdateResult.oldLevel} → ${levelUpdateResult.newLevel}`
+        );
+      }
     }
 
     // Generate token
     const token = generateToken(user._id);
 
-    res.status(201).json({
+    // Response with level update info
+    const response = {
       success: true,
       message: "User registered successfully",
       data: {
         user: user.toJSON(),
         token,
       },
-    });
+    };
+
+    // Add level update info to response if available
+    if (levelUpdateResult && levelUpdateResult.levelUpdated) {
+      response.levelUpdate = {
+        referrerUsername: levelUpdateResult.username,
+        oldLevel: levelUpdateResult.oldLevel,
+        newLevel: levelUpdateResult.newLevel,
+        message: `🎉 ${levelUpdateResult.username} leveled up to Level ${levelUpdateResult.newLevel}!`,
+      };
+    }
+
+    res.status(201).json(response);
   } catch (error) {
     console.error("Signup error:", error);
     res.status(500).json({
@@ -494,7 +580,7 @@ export const updateProfile = async (req, res) => {
   try {
     const { username, mobileNo, walletId, BEP, email, bankName } = req.body;
     const userId = req.userId;
-    
+
     // Input Validation
     const errors = [];
     if (username) {
@@ -534,7 +620,7 @@ export const updateProfile = async (req, res) => {
         ...(mobileNo ? [{ mobileNo }] : []),
       ],
     });
-    
+
     if (existingUser) {
       return res.status(409).json({
         success: false,
@@ -563,7 +649,8 @@ export const updateProfile = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Profile updated successfully. Withdrawals disabled for 72 hours.",
+      message:
+        "Profile updated successfully. Withdrawals disabled for 72 hours.",
       data: {
         user: updatedUser.toJSON(),
       },
@@ -580,20 +667,22 @@ export const updateProfile = async (req, res) => {
 // 🔥 NEW: Function to unfreeze users whose 72-hour period has ended
 export const checkAndUnfreezeUsers = async () => {
   try {
-    const seventyTwoHoursAgo = new Date(Date.now() - (72 * 60 * 60 * 1000));
-    
+    const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000);
+
     const result = await User.updateMany(
       {
         isFreezed: true,
-        freezeTimestamp: { $lt: seventyTwoHoursAgo }
+        freezeTimestamp: { $lt: seventyTwoHoursAgo },
       },
       {
         $set: { isFreezed: false },
-        $unset: { freezeTimestamp: "" }
+        $unset: { freezeTimestamp: "" },
       }
     );
-    
-    console.log(`Unfroze ${result.modifiedCount} users whose freeze period expired`);
+
+    console.log(
+      `Unfroze ${result.modifiedCount} users whose freeze period expired`
+    );
     return result.modifiedCount;
   } catch (error) {
     console.error("Error unfreezing users:", error);
@@ -605,18 +694,18 @@ export const checkUserFreezeStatus = async (req, res) => {
   try {
     const userId = req.userId;
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
     let freezeStatus = {
       isFreezed: user.isFreezed,
       timeRemaining: 0,
-      canWithdraw: !user.isFreezed
+      canWithdraw: !user.isFreezed,
     };
 
     if (user.isFreezed && user.freezeTimestamp) {
@@ -631,31 +720,31 @@ export const checkUserFreezeStatus = async (req, res) => {
         user.isFreezed = false;
         user.freezeTimestamp = undefined;
         await user.save();
-        
+
         freezeStatus = {
           isFreezed: false,
           timeRemaining: 0,
-          canWithdraw: true
+          canWithdraw: true,
         };
       } else {
         freezeStatus = {
           isFreezed: true,
           timeRemaining: timeRemaining,
           canWithdraw: false,
-          freezeStartTime: user.freezeTimestamp
+          freezeStartTime: user.freezeTimestamp,
         };
       }
     }
 
     return res.status(200).json({
       success: true,
-      data: freezeStatus
+      data: freezeStatus,
     });
   } catch (error) {
     console.error("Check freeze status error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 };
@@ -1055,4 +1144,107 @@ export const changePassword = async (req, res) => {
       ...(process.env.NODE_ENV === "development" && { error: error.message }),
     });
   }
+};
+
+const calculateUserLevel = (referralCount) => {
+  if (referralCount >= 14) return 5; // Level 5 for 14+ referrals
+  if (referralCount >= 10) return 4; // Level 4 for 10+ referrals
+  if (referralCount >= 5) return 3; // Level 3 for 5+ referrals
+  if (referralCount >= 2) return 2; // Level 2 for 2+ referrals
+  return 1; // Default level 1 (for 0-1 referrals)
+};
+
+// 🔥 Check and upgrade user level based on referral count
+export const upgradeLevels = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    console.log(`🔄 Checking and updating level for user: ${userId}`);
+
+    // Find the user with populated referredUsers
+    const user = await User.findById(userId).populate("referredUsers");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false,
+      });
+    }
+
+    // Count actual referrals from database
+    const currentReferralCount = user.referredUsers
+      ? user.referredUsers.length
+      : 0;
+
+    // Get current level from user document
+    const currentLevel = user.levels || 1;
+
+    // Calculate what level should be based on referrals
+    const calculatedLevel = calculateUserLevel(currentReferralCount);
+
+    console.log(`🔍 Level Check for ${user.username}:`);
+    console.log(`   - Current Level in DB: ${currentLevel}`);
+    console.log(`   - Total Referrals: ${currentReferralCount}`);
+    console.log(`   - Calculated Level: ${calculatedLevel}`);
+
+    // Always update the level (force update every call)
+    user.levels = calculatedLevel;
+    await user.save();
+
+    console.log(
+      `✅ Level updated: ${user.username} is now Level ${calculatedLevel}`
+    );
+
+    // Check if level was upgraded
+    const levelUpgraded = calculatedLevel > currentLevel;
+
+    return res.status(200).json({
+      message: levelUpgraded
+        ? `🎉 Congratulations! Level upgraded to Level ${calculatedLevel}!`
+        : `Level confirmed: You are Level ${calculatedLevel}`,
+      success: true,
+      data: {
+        userId: user._id,
+        username: user.username,
+        previousLevel: currentLevel,
+        currentLevel: calculatedLevel,
+        referralCount: currentReferralCount,
+        levelUpgraded: levelUpgraded,
+        nextLevelRequirement: getNextLevelRequirement(
+          calculatedLevel,
+          currentReferralCount
+        ),
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error in level check/upgrade:", error);
+    return res.status(500).json({
+      message: error.message,
+      success: false,
+    });
+  }
+};
+
+// Helper function to get next level requirement
+const getNextLevelRequirement = (currentLevel, currentReferrals) => {
+  const levelRequirements = {
+    1: { next: 2, required: 2 },
+    2: { next: 3, required: 5 },
+    3: { next: 4, required: 10 },
+    4: { next: 5, required: 14 },
+    5: { next: null, required: null }, // Max level
+  };
+
+  const levelInfo = levelRequirements[currentLevel];
+
+  if (!levelInfo || !levelInfo.next) {
+    return null; // Max level reached
+  }
+
+  const remaining = levelInfo.required - currentReferrals;
+  return {
+    nextLevel: levelInfo.next,
+    referralsNeeded: Math.max(0, remaining),
+    totalRequired: levelInfo.required,
+  };
 };

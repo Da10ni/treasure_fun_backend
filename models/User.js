@@ -146,7 +146,6 @@
 // //   },
 // // });
 
-
 // // export const PasswordResetCode = mongoose.model("PasswordResetCode", passwordResetSchema);
 // // export const ReferralCode = mongoose.model("ReferralCode", referralCodeSchema);
 
@@ -402,7 +401,6 @@
 
 // export default mongoose.model("User", userSchema);
 
-
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
@@ -518,8 +516,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    
-    // 🔥 UPDATED: Freeze system (backend-controlled)
+    levels: {
+      type: Number,
+      default: 1,
+    },
     isFreezed: {
       type: Boolean,
       default: false,
@@ -535,7 +535,7 @@ const userSchema = new mongoose.Schema(
 );
 
 // 🔥 NEW: Instance method to check if user should be unfrozen
-userSchema.methods.checkAndUnfreeze = function() {
+userSchema.methods.checkAndUnfreeze = function () {
   if (this.isFreezed && this.freezeTimestamp) {
     const currentTime = new Date();
     const freezeTime = new Date(this.freezeTimestamp);
@@ -553,7 +553,7 @@ userSchema.methods.checkAndUnfreeze = function() {
 };
 
 // 🔥 NEW: Instance method to get remaining freeze time
-userSchema.methods.getFreezeTimeRemaining = function() {
+userSchema.methods.getFreezeTimeRemaining = function () {
   if (!this.isFreezed || !this.freezeTimestamp) {
     return 0;
   }
