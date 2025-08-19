@@ -1228,10 +1228,10 @@ export const upgradeLevels = async (req, res) => {
 // Helper function to get next level requirement
 const getNextLevelRequirement = (currentLevel, currentReferrals) => {
   const levelRequirements = {
-    1: { next: 2, required: 2 },
-    2: { next: 3, required: 5 },
-    3: { next: 4, required: 10 },
-    4: { next: 5, required: 14 },
+    1: { next: 2, required: 16 },
+    2: { next: 3, required: 60 },
+    3: { next: 4, required: 120 },
+    4: { next: 5, required: 240 },
     5: { next: null, required: null }, // Max level
   };
 
