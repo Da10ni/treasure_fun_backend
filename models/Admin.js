@@ -1,8 +1,8 @@
-
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import speakeasy from "speakeasy";
 import qrcode from "qrcode";
+import { type } from "os";
 
 const adminSchema = new mongoose.Schema(
   {
@@ -50,6 +50,20 @@ const adminSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    networks: {
+      bep20Id: {
+        type: String,
+      },
+      bep20Img: {
+        type: String,
+      },
+      trc20Id: {
+        type: String,
+      },
+      trc20Img: {
+        type: String,
+      },
+    },
   },
   {
     timestamps: true,
@@ -83,10 +97,10 @@ adminSchema.methods.comparePassword = async function (candidatePassword) {
 adminSchema.methods.generateTotpSecret = function () {
   const secret = speakeasy.generateSecret({
     name: `Admin Panel - ${this.username}`,
-    issuer: 'Your App Name',
+    issuer: "Your App Name",
     length: 32,
   });
-  
+
   this.totpSecret = secret.base32;
   return secret;
 };
@@ -96,14 +110,14 @@ adminSchema.methods.generateQRCode = async function () {
   if (!this.totpSecret) {
     throw new Error("TOTP secret not found");
   }
-  
+
   const otpauthURL = speakeasy.otpauthURL({
     secret: this.totpSecret,
     label: this.username,
-    issuer: 'Your App Name',
-    encoding: 'base32'
+    issuer: "Your App Name",
+    encoding: "base32",
   });
-  
+
   try {
     const qrCodeDataURL = await qrcode.toDataURL(otpauthURL);
     return qrCodeDataURL;
@@ -117,10 +131,10 @@ adminSchema.methods.verifyTotpToken = function (token) {
   if (!this.totpSecret) {
     return false;
   }
-  
+
   return speakeasy.totp.verify({
     secret: this.totpSecret,
-    encoding: 'base32',
+    encoding: "base32",
     token: token,
     window: 2, // Allow 2 steps before and after current time
   });
@@ -131,7 +145,7 @@ adminSchema.methods.enableTotp = function (token) {
   if (!this.verifyTotpToken(token)) {
     return false;
   }
-  
+
   this.isTotpEnabled = true;
   this.totpSetupComplete = true;
   return true;

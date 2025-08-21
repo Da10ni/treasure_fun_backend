@@ -36,33 +36,49 @@
 
 import { Router } from "express";
 import {
-    getActiveUsers,
-    getProfile,
-    login,
-    logout,
-    updateProfile,
-    generateAuthenticatorQR,
-    verifyAndEnableTotp
+  getActiveUsers,
+  getProfile,
+  login,
+  logout,
+  updateProfile,
+  generateAuthenticatorQR,
+  verifyAndEnableTotp,
+  updateNetworkImages,
+  getNetworkImages,
 } from "../controllers/adminController.js";
 import { authenticateAdmin } from "../middleware/auth.js";
 import { checkAuth } from "../controllers/authController.js";
+import multer from "multer";
 
+// Configure multer with better options
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 const routes = Router();
 
 // =============================================
 // PUBLIC ROUTES (No Authentication Required)
 // =============================================
-routes.route("/login").post(login);        // Admin login - public
-routes.route("/generate-qr").post(generateAuthenticatorQR);  // Generate QR code for Google Authenticator
-routes.route("/verify-totp").post(verifyAndEnableTotp);      // Verify and enable TOTP
-routes.get('/check-admin', authenticateAdmin, checkAuth);
+routes.route("/login").post(login); // Admin login - public
+routes.route("/generate-qr").post(generateAuthenticatorQR); // Generate QR code for Google Authenticator
+routes.route("/verify-totp").post(verifyAndEnableTotp); // Verify and enable TOTP
+routes.get("/check-admin", authenticateAdmin, checkAuth);
 
 // =============================================
 // ADMIN-ONLY ROUTES (authenticateAdmin)
 // =============================================
-routes.route("/logout").post(authenticateAdmin, logout);                    // Admin logout
-routes.route("/getactiveuser").get(getActiveUsers);      // Admin viewing user data
-routes.route("/update/:id").post(authenticateAdmin, updateProfile);         // Admin update own profile
-routes.route("/:id").get(authenticateAdmin, getProfile);                   // Admin get own profile
+routes.route("/logout").post(authenticateAdmin, logout); // Admin logout
+routes.route("/getactiveuser").get(getActiveUsers); // Admin viewing user data
+routes.route("/update/:id").post(authenticateAdmin, updateProfile); // Admin update own profile
+routes.route("/:id").get(authenticateAdmin, getProfile); // Admin get own profile
+routes.post(
+  "/update-network-images",
+  authenticateAdmin,
+  upload.fields([
+    { name: "bep20Img", maxCount: 1 },
+    { name: "trc20Img", maxCount: 1 },
+  ]),
+  updateNetworkImages
+);
+routes.get("/network-images", authenticateAdmin, getNetworkImages);
 
 export default routes;

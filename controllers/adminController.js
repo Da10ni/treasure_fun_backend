@@ -255,13 +255,12 @@
 //   }
 // };
 
-
 // export { signup, login, logout, updateProfile, getProfile, getActiveUsers };
-
 
 import { generateToken } from "../methods/methods.js";
 import Admin from "../models/Admin.js";
 import User from "../models/User.js";
+import { uploadToCloudinary } from "../services/cloudinaryService.js";
 
 const login = async (req, res) => {
   try {
@@ -295,7 +294,8 @@ const login = async (req, res) => {
     // Check if TOTP is enabled and verify token
     if (!admin.isTotpEnabled) {
       return res.status(400).json({
-        message: "Google Authenticator is not set up. Please contact administrator.",
+        message:
+          "Google Authenticator is not set up. Please contact administrator.",
         success: false,
       });
     }
@@ -363,7 +363,7 @@ const generateAuthenticatorQR = async (req, res) => {
       data: {
         qrCode: qrCodeDataURL,
         secret: admin.totpSecret, // For manual entry if QR doesn't work
-        setupComplete: admin.totpSetupComplete
+        setupComplete: admin.totpSetupComplete,
       },
     });
   } catch (error) {
@@ -418,7 +418,7 @@ const verifyAndEnableTotp = async (req, res) => {
       message: "Google Authenticator enabled successfully!",
       data: {
         totpEnabled: admin.isTotpEnabled,
-        setupComplete: admin.totpSetupComplete
+        setupComplete: admin.totpSetupComplete,
       },
     });
   } catch (error) {
@@ -546,13 +546,113 @@ const getActiveUsers = async (_, res) => {
     });
   }
 };
+const updateNetworkImages = async (req, res) => {
+  try {
+    const { bep20Id, trc20Id } = req.body;
+    const files = req.files || {};
+    const adminId = req.userId;
 
-export { 
-  login, 
-  logout, 
-  updateProfile, 
-  getProfile, 
-  getActiveUsers, 
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res
+        .status(404)
+        .json({ message: "Admin not found", success: false });
+    }
+
+    if (!admin.networks) {
+      admin.networks = {};
+    }
+
+    let updated = false;
+
+    // Upload BEP-20 image to Cloudinary
+    if (files.bep20Img && files.bep20Img[0]) {
+      const result = await uploadToCloudinary(files.bep20Img[0], "networks");
+      admin.networks.bep20Img = result.url;
+      updated = true;
+    }
+
+    // Upload TRC-20 image to Cloudinary
+    if (files.trc20Img && files.trc20Img[0]) {
+      const result = await uploadToCloudinary(files.trc20Img[0], "networks");
+      admin.networks.trc20Img = result.url;
+      updated = true;
+    }
+
+    if (bep20Id && bep20Id.trim() !== "") {
+      admin.networks.bep20Id = bep20Id.trim();
+      updated = true;
+    }
+
+    if (trc20Id && trc20Id.trim() !== "") {
+      admin.networks.trc20Id = trc20Id.trim();
+      updated = true;
+    }
+
+    if (!updated) {
+      return res.status(400).json({
+        message: "No valid data provided for update",
+        success: false,
+      });
+    }
+
+    const savedAdmin = await admin.save();
+
+    return res.status(200).json({
+      message: "Network images and data updated successfully",
+      success: true,
+      data: {
+        networks: savedAdmin.networks,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating network images:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+const getNetworkImages = async (req, res) => {
+  try {
+    const adminId = req.userId;
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(404).json({
+        message: "Admin not found",
+        success: false,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Network data fetched successfully",
+      success: true,
+      data: {
+        networks: admin.networks || {},
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching network images:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+
+export {
+  login,
+  logout,
+  updateProfile,
+  getProfile,
+  getActiveUsers,
   generateAuthenticatorQR,
-  verifyAndEnableTotp 
+  verifyAndEnableTotp,
+  updateNetworkImages,
+  getNetworkImages
 };
