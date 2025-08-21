@@ -528,6 +528,20 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null, // When the freeze started
     },
+
+    reserve: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastReserveTime: {
+      type: Date,
+      default: null,
+    },
+    reserveCooldownExpires: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -617,6 +631,7 @@ userSchema.index({ mobileNo: 1 });
 userSchema.index({ myReferralCode: 1 });
 userSchema.index({ referredByCode: 1 });
 userSchema.index({ isFreezed: 1, freezeTimestamp: 1 }); // 🔥 NEW: Index for freeze queries
+userSchema.index({ reserveCooldownExpires: 1 });
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
@@ -630,6 +645,19 @@ userSchema.pre("save", async function (next) {
     next(error);
   }
 });
+
+// Method to check if user can reserve
+userSchema.methods.canReserve = function () {
+  if (!this.reserveCooldownExpires) return true;
+  return new Date() >= this.reserveCooldownExpires;
+};
+
+// Method to get remaining cooldown time
+userSchema.methods.getRemainingCooldown = function () {
+  if (!this.reserveCooldownExpires) return 0;
+  const now = new Date();
+  return Math.max(0, this.reserveCooldownExpires.getTime() - now.getTime());
+};
 
 // Instance method to compare password
 userSchema.methods.comparePassword = async function (candidatePassword) {

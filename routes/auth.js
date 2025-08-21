@@ -18,6 +18,10 @@ import {
   changePassword,
   checkAndUnfreezeUsers,
   upgradeLevels,
+  handelReserve,
+  handelReserveUser,
+  handelReservestatus,
+  checkUserFreezeStatusEnhanced,
 } from "../controllers/authController.js";
 import { authenticateUser, authenticateAdmin } from "../middleware/auth.js";
 
@@ -35,6 +39,11 @@ router.get("/referral/validate/:code", validateReferralCode); // Public - Referr
 router.post("/password/forgot", sendPasswordResetCode); // Public - Send password reset code
 router.post("/password/verify-code", verifyResetCode); // Public - Verify reset code (optional)
 router.post("/password/reset", resetPassword);
+
+// 🔥 UPDATED: Enhanced freeze status routes
+router.get("/freeze-status", authenticateUser, checkUserFreezeStatusEnhanced); // User's own status
+router.get("/freeze-status/:userId", authenticateUser, checkUserFreezeStatusEnhanced); // Specific user
+
 router.post("/admin/unfreeze-expired", authenticateUser, async (req, res) => {
   try {
     const unfreezeCount = await checkAndUnfreezeUsers();
@@ -62,6 +71,9 @@ router.put("/profile", authenticateUser, updateProfile); // User apna profile up
 router.get("/deposits/:id", authenticateUser, getMyDeposits); // User ke deposits (ID should match token user)
 router.get("/referrals", authenticateUser, getUserReferrals); // User ke referrals
 router.post("/upgrade-levels", authenticateUser, upgradeLevels);
+router.post("/reserve", authenticateUser, handelReserve);
+router.get("/reserve-status/:userId", authenticateUser, handelReservestatus);
+router.get("/user/:userId/reserves", authenticateUser, handelReserveUser);
 
 // Password Change Route (Authenticated)
 router.post("/password/change", authenticateUser, changePassword); // User - Change password
