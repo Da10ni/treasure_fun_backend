@@ -492,7 +492,7 @@ const userSchema = new mongoose.Schema(
     // Financials
     walletBalance: {
       type: Number,
-      default: 10000000000,
+      default: 0,
     },
     tuftWalletBalance: {
       type: Number,

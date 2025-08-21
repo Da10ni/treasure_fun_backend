@@ -1346,10 +1346,10 @@ export const changePassword = async (req, res) => {
 };
 
 const calculateUserLevel = (referralCount) => {
-  if (referralCount >= 14) return 5; // Level 5 for 14+ referrals
-  if (referralCount >= 10) return 4; // Level 4 for 10+ referrals
-  if (referralCount >= 5) return 3; // Level 3 for 5+ referrals
-  if (referralCount >= 2) return 2; // Level 2 for 2+ referrals
+  if (referralCount >= 240) return 5; // Level 5 for 14+ referrals
+  if (referralCount >= 120) return 4; // Level 4 for 10+ referrals
+  if (referralCount >= 60) return 3; // Level 3 for 5+ referrals
+  if (referralCount >= 16) return 2; // Level 2 for 2+ referrals
   return 1; // Default level 1 (for 0-1 referrals)
 };
 
@@ -1380,11 +1380,6 @@ export const upgradeLevels = async (req, res) => {
 
     // Calculate what level should be based on referrals
     const calculatedLevel = calculateUserLevel(currentReferralCount);
-
-    console.log(`🔍 Level Check for ${user.username}:`);
-    console.log(`   - Current Level in DB: ${currentLevel}`);
-    console.log(`   - Total Referrals: ${currentReferralCount}`);
-    console.log(`   - Calculated Level: ${calculatedLevel}`);
 
     // Always update the level (force update every call)
     user.levels = calculatedLevel;
