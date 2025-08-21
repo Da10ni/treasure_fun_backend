@@ -146,7 +146,6 @@
 // //   },
 // // });
 
-
 // // export const PasswordResetCode = mongoose.model("PasswordResetCode", passwordResetSchema);
 // // export const ReferralCode = mongoose.model("ReferralCode", referralCodeSchema);
 
@@ -402,7 +401,6 @@
 
 // export default mongoose.model("User", userSchema);
 
-
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
@@ -494,7 +492,7 @@ const userSchema = new mongoose.Schema(
     // Financials
     walletBalance: {
       type: Number,
-      default: 10000000000,
+      default: 0,
     },
     tuftWalletBalance: {
       type: Number,
@@ -518,8 +516,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    
-    // 🔥 UPDATED: Freeze system (backend-controlled)
+    levels: {
+      type: Number,
+      default: 1,
+    },
     isFreezed: {
       type: Boolean,
       default: false,
@@ -528,6 +528,20 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null, // When the freeze started
     },
+
+    reserve: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastReserveTime: {
+      type: Date,
+      default: null,
+    },
+    reserveCooldownExpires: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -535,7 +549,7 @@ const userSchema = new mongoose.Schema(
 );
 
 // 🔥 NEW: Instance method to check if user should be unfrozen
-userSchema.methods.checkAndUnfreeze = function() {
+userSchema.methods.checkAndUnfreeze = function () {
   if (this.isFreezed && this.freezeTimestamp) {
     const currentTime = new Date();
     const freezeTime = new Date(this.freezeTimestamp);
@@ -553,7 +567,7 @@ userSchema.methods.checkAndUnfreeze = function() {
 };
 
 // 🔥 NEW: Instance method to get remaining freeze time
-userSchema.methods.getFreezeTimeRemaining = function() {
+userSchema.methods.getFreezeTimeRemaining = function () {
   if (!this.isFreezed || !this.freezeTimestamp) {
     return 0;
   }
@@ -617,6 +631,7 @@ userSchema.index({ mobileNo: 1 });
 userSchema.index({ myReferralCode: 1 });
 userSchema.index({ referredByCode: 1 });
 userSchema.index({ isFreezed: 1, freezeTimestamp: 1 }); // 🔥 NEW: Index for freeze queries
+userSchema.index({ reserveCooldownExpires: 1 });
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
@@ -630,6 +645,19 @@ userSchema.pre("save", async function (next) {
     next(error);
   }
 });
+
+// Method to check if user can reserve
+userSchema.methods.canReserve = function () {
+  if (!this.reserveCooldownExpires) return true;
+  return new Date() >= this.reserveCooldownExpires;
+};
+
+// Method to get remaining cooldown time
+userSchema.methods.getRemainingCooldown = function () {
+  if (!this.reserveCooldownExpires) return 0;
+  const now = new Date();
+  return Math.max(0, this.reserveCooldownExpires.getTime() - now.getTime());
+};
 
 // Instance method to compare password
 userSchema.methods.comparePassword = async function (candidatePassword) {

@@ -93,7 +93,67 @@ export const generateReferralCodeForEmail = async (req, res) => {
   }
 };
 
-// Sign up new user
+const autoUpdateUserLevel = async (userId) => {
+  try {
+    console.log(`🔄 Auto-updating level for user: ${userId}`);
+
+    // Find user with populated referredUsers
+    const user = await User.findById(userId).populate("referredUsers");
+
+    if (!user) {
+      console.error(`❌ User not found: ${userId}`);
+      return null;
+    }
+
+    // Count actual referrals
+    const currentReferralCount = user.referredUsers
+      ? user.referredUsers.length
+      : 0;
+
+    // Get current level
+    const currentLevel = user.levels || 1;
+
+    // Calculate new level
+    const calculatedLevel = calculateUserLevel(currentReferralCount);
+
+    console.log(
+      `📊 ${user.username}: ${currentReferralCount} referrals, Level ${currentLevel} → ${calculatedLevel}`
+    );
+
+    // Update level if changed
+    if (calculatedLevel !== currentLevel) {
+      user.levels = calculatedLevel;
+      await user.save();
+
+      console.log(
+        `✅ Level auto-updated: ${user.username} is now Level ${calculatedLevel}`
+      );
+
+      return {
+        levelUpdated: true,
+        oldLevel: currentLevel,
+        newLevel: calculatedLevel,
+        referralCount: currentReferralCount,
+        username: user.username,
+      };
+    } else {
+      console.log(
+        `ℹ️ Level unchanged: ${user.username} remains at Level ${currentLevel}`
+      );
+      return {
+        levelUpdated: false,
+        currentLevel: currentLevel,
+        referralCount: currentReferralCount,
+        username: user.username,
+      };
+    }
+  } catch (error) {
+    console.error("❌ Error in auto level update:", error);
+    return null;
+  }
+};
+
+// Updated signup function
 export const signup = async (req, res) => {
   try {
     const {
@@ -188,24 +248,50 @@ export const signup = async (req, res) => {
     await user.save();
 
     // Update referring user if exists
+    let levelUpdateResult = null;
     if (referringUser) {
+      // Update referral data
       await User.findByIdAndUpdate(referringUser._id, {
         $push: { referredUsers: user._id },
         $inc: { referralCount: 1 },
       });
+
+      console.log(`🎯 New referral added for ${referringUser.username}`);
+
+      // 🔥 AUTO UPDATE LEVEL - Yahan magic hota hai!
+      levelUpdateResult = await autoUpdateUserLevel(referringUser._id);
+
+      if (levelUpdateResult && levelUpdateResult.levelUpdated) {
+        console.log(
+          `🎉 LEVEL UP! ${referringUser.username}: Level ${levelUpdateResult.oldLevel} → ${levelUpdateResult.newLevel}`
+        );
+      }
     }
 
     // Generate token
     const token = generateToken(user._id);
 
-    res.status(201).json({
+    // Response with level update info
+    const response = {
       success: true,
       message: "User registered successfully",
       data: {
         user: user.toJSON(),
         token,
       },
-    });
+    };
+
+    // Add level update info to response if available
+    if (levelUpdateResult && levelUpdateResult.levelUpdated) {
+      response.levelUpdate = {
+        referrerUsername: levelUpdateResult.username,
+        oldLevel: levelUpdateResult.oldLevel,
+        newLevel: levelUpdateResult.newLevel,
+        message: `🎉 ${levelUpdateResult.username} leveled up to Level ${levelUpdateResult.newLevel}!`,
+      };
+    }
+
+    res.status(201).json(response);
   } catch (error) {
     console.error("Signup error:", error);
     res.status(500).json({
@@ -490,11 +576,99 @@ export const logout = async (req, res) => {
 };
 
 // Update user profile
+// export const updateProfile = async (req, res) => {
+//   try {
+//     const { username, mobileNo, walletId, BEP, email, bankName } = req.body;
+//     const userId = req.userId;
+
+//     // Input Validation
+//     const errors = [];
+//     if (username) {
+//       if (username.length < 3 || username.length > 20) {
+//         errors.push({
+//           field: "username",
+//           message: "Username must be between 3 and 20 characters",
+//         });
+//       }
+//       if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+//         errors.push({
+//           field: "username",
+//           message:
+//             "Username can only contain letters, numbers, and underscores",
+//         });
+//       }
+//     }
+//     if (mobileNo && !/^[0-9]{10,15}$/.test(mobileNo)) {
+//       errors.push({
+//         field: "mobileNo",
+//         message: "Please enter a valid mobile number (10–15 digits)",
+//       });
+//     }
+//     if (errors.length > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Validation failed",
+//         errors,
+//       });
+//     }
+
+//     // Check if username or mobile number already exists (excluding current user)
+//     const existingUser = await User.findOne({
+//       _id: { $ne: userId },
+//       $or: [
+//         ...(username ? [{ username }] : []),
+//         ...(mobileNo ? [{ mobileNo }] : []),
+//       ],
+//     });
+
+//     if (existingUser) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "Username or mobile number already exists",
+//       });
+//     }
+
+//     // Prepare update object
+//     const updateData = {};
+//     if (username) updateData.username = username.trim();
+//     if (email) updateData.email = email.trim();
+//     if (mobileNo) updateData.mobileNo = mobileNo.trim();
+//     if (walletId) updateData.walletId = walletId.trim(); // TRC-20
+//     if (BEP) updateData.BEP = BEP.trim(); // BEP-20
+//     if (bankName) updateData.bankName = bankName.trim();
+
+//     // 🔥 NEW: Set freeze status and timestamp
+//     updateData.isFreezed = true;
+//     updateData.freezeTimestamp = new Date(); // Store when freeze started
+
+//     // Update user document
+//     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+//       new: true,
+//       runValidators: true,
+//     });
+
+//     return res.status(200).json({
+//       success: true,
+//       message:
+//         "Profile updated successfully. Withdrawals disabled for 72 hours.",
+//       data: {
+//         user: updatedUser.toJSON(),
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Update profile error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//     });
+//   }
+// };
+
 export const updateProfile = async (req, res) => {
   try {
     const { username, mobileNo, walletId, BEP, email, bankName } = req.body;
     const userId = req.userId;
-    
+
     // Input Validation
     const errors = [];
     if (username) {
@@ -534,13 +708,37 @@ export const updateProfile = async (req, res) => {
         ...(mobileNo ? [{ mobileNo }] : []),
       ],
     });
-    
+
     if (existingUser) {
       return res.status(409).json({
         success: false,
         message: "Username or mobile number already exists",
       });
     }
+
+    // 🔥 NEW: Get current user data to check for wallet changes
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // 🔥 NEW: Check if wallet addresses are being updated
+    const isWalletIdUpdating = walletId && walletId.trim() !== (currentUser.walletId || "");
+    const isBEPUpdating = BEP && BEP.trim() !== (currentUser.BEP || "");
+    const isWalletUpdating = isWalletIdUpdating || isBEPUpdating;
+
+    console.log("🔍 Wallet Update Check:", {
+      isWalletIdUpdating,
+      isBEPUpdating,
+      isWalletUpdating,
+      currentTRC: currentUser.walletId,
+      newTRC: walletId,
+      currentBEP: currentUser.BEP,
+      newBEP: BEP,
+    });
 
     // Prepare update object
     const updateData = {};
@@ -551,9 +749,15 @@ export const updateProfile = async (req, res) => {
     if (BEP) updateData.BEP = BEP.trim(); // BEP-20
     if (bankName) updateData.bankName = bankName.trim();
 
-    // 🔥 NEW: Set freeze status and timestamp
-    updateData.isFreezed = true;
-    updateData.freezeTimestamp = new Date(); // Store when freeze started
+    // 🔥 NEW: Conditional freeze - only if wallet addresses are being updated
+    if (isWalletUpdating) {
+      updateData.isFreezed = true;
+      updateData.freezeTimestamp = new Date();
+      
+      console.log("🧊 User will be frozen due to wallet address update");
+    } else {
+      console.log("✅ No wallet address changes - user will not be frozen");
+    }
 
     // Update user document
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
@@ -561,11 +765,27 @@ export const updateProfile = async (req, res) => {
       runValidators: true,
     });
 
+    // Determine response message based on freeze status
+    let message = "Profile updated successfully.";
+    if (isWalletUpdating) {
+      message += " Withdrawals disabled for 72 hours due to wallet address changes.";
+    }
+
     return res.status(200).json({
       success: true,
-      message: "Profile updated successfully. Withdrawals disabled for 72 hours.",
+      message: message,
       data: {
         user: updatedUser.toJSON(),
+        freezeInfo: {
+          isFreezed: updatedUser.isFreezed,
+          freezeTimestamp: updatedUser.freezeTimestamp,
+          reason: isWalletUpdating ? "Wallet address updated" : "Not frozen",
+          walletUpdated: isWalletUpdating,
+          updatedFields: {
+            trc20Updated: isWalletIdUpdating,
+            bep20Updated: isBEPUpdating,
+          }
+        }
       },
     });
   } catch (error) {
@@ -577,23 +797,91 @@ export const updateProfile = async (req, res) => {
   }
 };
 
+// 🔥 NEW: Enhanced freeze status check with reason
+export const checkUserFreezeStatusEnhanced = async (req, res) => {
+  try {
+    const userId = req.userId || req.params.userId;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if user should be auto-unfrozen
+    const wasUnfrozen = user.checkAndUnfreeze();
+    if (wasUnfrozen) {
+      await user.save();
+      console.log(`🔥 Auto-unfroze user: ${user.username}`);
+    }
+
+    let freezeStatus = {
+      isFreezed: user.isFreezed,
+      timeRemaining: 0,
+      canWithdraw: !user.isFreezed,
+      username: user.username,
+      freezeReason: user.isFreezed ? "Wallet address security freeze" : null,
+    };
+
+    if (user.isFreezed && user.freezeTimestamp) {
+      const timeRemaining = user.getFreezeTimeRemaining();
+      const unfreezeAt = new Date(user.freezeTimestamp.getTime() + 72 * 60 * 60 * 1000);
+      
+      freezeStatus = {
+        isFreezed: true,
+        timeRemaining: timeRemaining,
+        canWithdraw: false,
+        freezeStartTime: user.freezeTimestamp,
+        unfreezeAt: unfreezeAt,
+        username: user.username,
+        freezeDurationHours: 72,
+        freezeReason: "Wallet address was recently updated for security",
+      };
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Freeze status for ${user.username}`,
+      data: freezeStatus,
+    });
+  } catch (error) {
+    console.error("Check freeze status error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : "Something went wrong",
+    });
+  }
+};
+
 // 🔥 NEW: Function to unfreeze users whose 72-hour period has ended
 export const checkAndUnfreezeUsers = async () => {
   try {
-    const seventyTwoHoursAgo = new Date(Date.now() - (72 * 60 * 60 * 1000));
-    
+    const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000);
+
     const result = await User.updateMany(
       {
         isFreezed: true,
-        freezeTimestamp: { $lt: seventyTwoHoursAgo }
+        freezeTimestamp: { $lt: seventyTwoHoursAgo },
       },
       {
         $set: { isFreezed: false },
-        $unset: { freezeTimestamp: "" }
+        $unset: { freezeTimestamp: "" },
       }
     );
-    
-    console.log(`Unfroze ${result.modifiedCount} users whose freeze period expired`);
+
+    console.log(
+      `Unfroze ${result.modifiedCount} users whose freeze period expired`
+    );
     return result.modifiedCount;
   } catch (error) {
     console.error("Error unfreezing users:", error);
@@ -605,18 +893,18 @@ export const checkUserFreezeStatus = async (req, res) => {
   try {
     const userId = req.userId;
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
     let freezeStatus = {
       isFreezed: user.isFreezed,
       timeRemaining: 0,
-      canWithdraw: !user.isFreezed
+      canWithdraw: !user.isFreezed,
     };
 
     if (user.isFreezed && user.freezeTimestamp) {
@@ -631,31 +919,31 @@ export const checkUserFreezeStatus = async (req, res) => {
         user.isFreezed = false;
         user.freezeTimestamp = undefined;
         await user.save();
-        
+
         freezeStatus = {
           isFreezed: false,
           timeRemaining: 0,
-          canWithdraw: true
+          canWithdraw: true,
         };
       } else {
         freezeStatus = {
           isFreezed: true,
           timeRemaining: timeRemaining,
           canWithdraw: false,
-          freezeStartTime: user.freezeTimestamp
+          freezeStartTime: user.freezeTimestamp,
         };
       }
     }
 
     return res.status(200).json({
       success: true,
-      data: freezeStatus
+      data: freezeStatus,
     });
   } catch (error) {
     console.error("Check freeze status error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 };
@@ -1053,6 +1341,285 @@ export const changePassword = async (req, res) => {
       success: false,
       message: "Failed to change password",
       ...(process.env.NODE_ENV === "development" && { error: error.message }),
+    });
+  }
+};
+
+const calculateUserLevel = (referralCount) => {
+  if (referralCount >= 240) return 5; // Level 5 for 14+ referrals
+  if (referralCount >= 120) return 4; // Level 4 for 10+ referrals
+  if (referralCount >= 60) return 3; // Level 3 for 5+ referrals
+  if (referralCount >= 16) return 2; // Level 2 for 2+ referrals
+  return 1; // Default level 1 (for 0-1 referrals)
+};
+
+// 🔥 Check and upgrade user level based on referral count
+export const upgradeLevels = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    console.log(`🔄 Checking and updating level for user: ${userId}`);
+
+    // Find the user with populated referredUsers
+    const user = await User.findById(userId).populate("referredUsers");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false,
+      });
+    }
+
+    // Count actual referrals from database
+    const currentReferralCount = user.referredUsers
+      ? user.referredUsers.length
+      : 0;
+
+    // Get current level from user document
+    const currentLevel = user.levels || 1;
+
+    // Calculate what level should be based on referrals
+    const calculatedLevel = calculateUserLevel(currentReferralCount);
+
+    // Always update the level (force update every call)
+    user.levels = calculatedLevel;
+    await user.save();
+
+    console.log(
+      `✅ Level updated: ${user.username} is now Level ${calculatedLevel}`
+    );
+
+    // Check if level was upgraded
+    const levelUpgraded = calculatedLevel > currentLevel;
+
+    return res.status(200).json({
+      message: levelUpgraded
+        ? `🎉 Congratulations! Level upgraded to Level ${calculatedLevel}!`
+        : `Level confirmed: You are Level ${calculatedLevel}`,
+      success: true,
+      data: {
+        userId: user._id,
+        username: user.username,
+        previousLevel: currentLevel,
+        currentLevel: calculatedLevel,
+        referralCount: currentReferralCount,
+        levelUpgraded: levelUpgraded,
+        nextLevelRequirement: getNextLevelRequirement(
+          calculatedLevel,
+          currentReferralCount
+        ),
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error in level check/upgrade:", error);
+    return res.status(500).json({
+      message: error.message,
+      success: false,
+    });
+  }
+};
+
+// Helper function to get next level requirement
+const getNextLevelRequirement = (currentLevel, currentReferrals) => {
+  const levelRequirements = {
+    1: { next: 2, required: 16 },
+    2: { next: 3, required: 60 },
+    3: { next: 4, required: 120 },
+    4: { next: 5, required: 240 },
+    5: { next: null, required: null }, // Max level
+  };
+
+  const levelInfo = levelRequirements[currentLevel];
+
+  if (!levelInfo || !levelInfo.next) {
+    return null; // Max level reached
+  }
+
+  const remaining = levelInfo.required - currentReferrals;
+  return {
+    nextLevel: levelInfo.next,
+    referralsNeeded: Math.max(0, remaining),
+    totalRequired: levelInfo.required,
+  };
+};
+
+export const handelReserve = async (req, res) => {
+  try {
+    const { userId, reserveAmount } = req.body;
+
+    // Validation
+    if (!userId || !reserveAmount) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID and reserve amount are required",
+      });
+    }
+
+    if (reserveAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Reserve amount must be greater than 0",
+      });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check wallet balance
+    const walletBalance = user.walletBalance || 0;
+    if (reserveAmount > walletBalance) {
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient wallet balance",
+      });
+    }
+
+    // Check if user can reserve (20-hour cooldown)
+    const now = new Date();
+    if (user.reserveCooldownExpires && now < user.reserveCooldownExpires) {
+      const timeRemaining =
+        user.reserveCooldownExpires.getTime() - now.getTime();
+      return res.status(400).json({
+        success: false,
+        message: "Reserve is on cooldown",
+        data: {
+          timeRemaining,
+          canReserve: false,
+        },
+      });
+    }
+
+    // Calculate new reserve amount and cooldown expiry
+    const currentReserve = user.reserve || 0;
+    const newReserveAmount = currentReserve + parseFloat(reserveAmount);
+    const cooldownExpiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 20 hours
+
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          reserve: newReserveAmount,
+          lastReserveTime: now,
+          reserveCooldownExpires: cooldownExpiry,
+        },
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Amount reserved successfully",
+      data: {
+        user: {
+          _id: updatedUser._id,
+          username: updatedUser.username,
+          email: updatedUser.email,
+          walletBalance: updatedUser.walletBalance,
+          reserve: updatedUser.reserve,
+          lastReserveTime: updatedUser.lastReserveTime,
+          reserveCooldownExpires: updatedUser.reserveCooldownExpires,
+        },
+        reserveAmount: reserveAmount,
+        totalReserve: newReserveAmount,
+        cooldownExpires: cooldownExpiry,
+      },
+    });
+  } catch (error) {
+    console.error("Reserve error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Something went wrong",
+    });
+  }
+};
+
+// GET /auth/reserve-status/:userId - Get reserve status
+export const handelReservestatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId).select(
+      "reserve lastReserveTime reserveCooldownExpires walletBalance"
+    );
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const now = new Date();
+    const canReserve =
+      !user.reserveCooldownExpires || now >= user.reserveCooldownExpires;
+
+    let timeRemaining = 0;
+    if (user.reserveCooldownExpires && now < user.reserveCooldownExpires) {
+      timeRemaining = user.reserveCooldownExpires.getTime() - now.getTime();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        reserve: user.reserve || 0,
+        walletBalance: user.walletBalance || 0,
+        lastReserveTime: user.lastReserveTime,
+        reserveCooldownExpires: user.reserveCooldownExpires,
+        canReserve: canReserve,
+        timeRemaining: timeRemaining,
+      },
+    });
+  } catch (error) {
+    console.error("Get reserve status error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Something went wrong",
+    });
+  }
+};
+
+// GET /auth/user/:userId/reserves - Get user's reserve history (optional)
+export const handelReserveUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId).select(
+      "reserve lastReserveTime reserveCooldownExpires"
+    );
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalReserve: user.reserve || 0,
+        lastReserveTime: user.lastReserveTime,
+        nextReserveAvailable: user.reserveCooldownExpires,
+      },
+    });
+  } catch (error) {
+    console.error("Get reserves error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 };

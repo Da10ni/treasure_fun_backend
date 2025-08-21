@@ -12,6 +12,7 @@ import heroImageRoutes from "./routes/heroImage.js";
 import notificationRoutes from "./routes/notification.js";
 import cron from "node-cron"
 import { checkAndUnfreezeUsers } from "./controllers/authController.js";
+import { triggerDailyIncomeManually } from "./services/cronJops.js";
 
 // import stakeRoutes from "./routes/stakes.js";
 
@@ -138,6 +139,24 @@ app.get("/api", (req, res) => {
       // },
     },
   });
+});
+
+app.post('/api/admin/trigger-daily-income', async (req, res) => {
+  try {
+    // Add authentication middleware here to ensure only admin can access
+    await triggerDailyIncomeManually();
+    res.json({ 
+      success: true, 
+      message: 'Daily income processing triggered manually',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to trigger daily income', 
+      error: error.message 
+    });
+  }
 });
 
 // 404 handler
