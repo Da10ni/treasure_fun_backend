@@ -22,6 +22,7 @@ import {
   handelReserveUser,
   handelReservestatus,
   checkUserFreezeStatusEnhanced,
+  handleRedeem,
 } from "../controllers/authController.js";
 import { authenticateUser, authenticateAdmin } from "../middleware/auth.js";
 
@@ -74,7 +75,7 @@ router.post("/upgrade-levels", authenticateUser, upgradeLevels);
 router.post("/reserve", authenticateUser, handelReserve);
 router.get("/reserve-status/:userId", authenticateUser, handelReservestatus);
 router.get("/user/:userId/reserves", authenticateUser, handelReserveUser);
-
+router.post("/redeem", authenticateUser, handleRedeem);
 // Password Change Route (Authenticated)
 router.post("/password/change", authenticateUser, changePassword); // User - Change password
 

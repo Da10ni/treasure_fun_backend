@@ -484,11 +484,6 @@ const userSchema = new mongoose.Schema(
       type: String, // BEP-20 wallet
       default: null,
     },
-    bankName: {
-      type: String,
-      default: null,
-    },
-
     // Financials
     walletBalance: {
       type: Number,
@@ -498,7 +493,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-
+    availableBalance: {
+      type: Number,
+      default: 0,
+    },
     // Order Stats
     order: {
       type: Number,
