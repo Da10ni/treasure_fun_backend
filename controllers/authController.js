@@ -726,7 +726,8 @@ export const updateProfile = async (req, res) => {
     }
 
     // 🔥 NEW: Check if wallet addresses are being updated
-    const isWalletIdUpdating = walletId && walletId.trim() !== (currentUser.walletId || "");
+    const isWalletIdUpdating =
+      walletId && walletId.trim() !== (currentUser.walletId || "");
     const isBEPUpdating = BEP && BEP.trim() !== (currentUser.BEP || "");
     const isWalletUpdating = isWalletIdUpdating || isBEPUpdating;
 
@@ -753,7 +754,7 @@ export const updateProfile = async (req, res) => {
     if (isWalletUpdating) {
       updateData.isFreezed = true;
       updateData.freezeTimestamp = new Date();
-      
+
       console.log("🧊 User will be frozen due to wallet address update");
     } else {
       console.log("✅ No wallet address changes - user will not be frozen");
@@ -768,7 +769,8 @@ export const updateProfile = async (req, res) => {
     // Determine response message based on freeze status
     let message = "Profile updated successfully.";
     if (isWalletUpdating) {
-      message += " Withdrawals disabled for 72 hours due to wallet address changes.";
+      message +=
+        " Withdrawals disabled for 72 hours due to wallet address changes.";
     }
 
     return res.status(200).json({
@@ -784,8 +786,8 @@ export const updateProfile = async (req, res) => {
           updatedFields: {
             trc20Updated: isWalletIdUpdating,
             bep20Updated: isBEPUpdating,
-          }
-        }
+          },
+        },
       },
     });
   } catch (error) {
@@ -801,7 +803,7 @@ export const updateProfile = async (req, res) => {
 export const checkUserFreezeStatusEnhanced = async (req, res) => {
   try {
     const userId = req.userId || req.params.userId;
-    
+
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -834,8 +836,10 @@ export const checkUserFreezeStatusEnhanced = async (req, res) => {
 
     if (user.isFreezed && user.freezeTimestamp) {
       const timeRemaining = user.getFreezeTimeRemaining();
-      const unfreezeAt = new Date(user.freezeTimestamp.getTime() + 72 * 60 * 60 * 1000);
-      
+      const unfreezeAt = new Date(
+        user.freezeTimestamp.getTime() + 72 * 60 * 60 * 1000
+      );
+
       freezeStatus = {
         isFreezed: true,
         timeRemaining: timeRemaining,
@@ -858,7 +862,10 @@ export const checkUserFreezeStatusEnhanced = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: process.env.NODE_ENV === "development" ? error.message : "Something went wrong",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Something went wrong",
     });
   }
 };
@@ -1443,6 +1450,14 @@ const getNextLevelRequirement = (currentLevel, currentReferrals) => {
   };
 };
 
+const RESERVE_LIMITS = {
+  1: { min: 50, max: 1000 },
+  2: { min: 500, max: 2000 },
+  3: { min: 2000, max: 5000 },
+  4: { min: 5000, max: 10000 },
+  5: { min: 10000, max: 20000 },
+};
+
 export const handelReserve = async (req, res) => {
   try {
     const { userId, reserveAmount } = req.body;
@@ -1471,6 +1486,34 @@ export const handelReserve = async (req, res) => {
       });
     }
 
+    // Get user level (assuming user has a level field, default to 1 if not set)
+    const userLevel = user.levels || 1;
+
+    // Check if level is valid
+    if (!RESERVE_LIMITS[userLevel]) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user level",
+      });
+    }
+
+    // Get limits for user's level
+    const { min, max } = RESERVE_LIMITS[userLevel];
+
+    // Validate amount against level limits
+    if (reserveAmount < min || reserveAmount > max) {
+      return res.status(400).json({
+        success: false,
+        message: `Reserve amount must be between $${min} and $${max} for level ${userLevel}`,
+        data: {
+          userLevel,
+          minAmount: min,
+          maxAmount: max,
+          requestedAmount: reserveAmount,
+        },
+      });
+    }
+
     // Check wallet balance
     const walletBalance = user.walletBalance || 0;
     if (reserveAmount > walletBalance) {
@@ -1480,7 +1523,7 @@ export const handelReserve = async (req, res) => {
       });
     }
 
-    // Check if user can reserve (20-hour cooldown)
+    // Check if user can reserve (24-hour cooldown)
     const now = new Date();
     if (user.reserveCooldownExpires && now < user.reserveCooldownExpires) {
       const timeRemaining =
@@ -1498,7 +1541,7 @@ export const handelReserve = async (req, res) => {
     // Calculate new reserve amount and cooldown expiry
     const currentReserve = user.reserve || 0;
     const newReserveAmount = currentReserve + parseFloat(reserveAmount);
-    const cooldownExpiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 20 hours
+    const cooldownExpiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Update user
     const updatedUser = await User.findByIdAndUpdate(
@@ -1523,12 +1566,14 @@ export const handelReserve = async (req, res) => {
           email: updatedUser.email,
           walletBalance: updatedUser.walletBalance,
           reserve: updatedUser.reserve,
+          level: updatedUser.levels,
           lastReserveTime: updatedUser.lastReserveTime,
           reserveCooldownExpires: updatedUser.reserveCooldownExpires,
         },
         reserveAmount: reserveAmount,
         totalReserve: newReserveAmount,
         cooldownExpires: cooldownExpiry,
+        levelLimits: RESERVE_LIMITS[userLevel],
       },
     });
   } catch (error) {
@@ -1550,7 +1595,7 @@ export const handelReservestatus = async (req, res) => {
     const { userId } = req.params;
 
     const user = await User.findById(userId).select(
-      "reserve lastReserveTime reserveCooldownExpires walletBalance"
+      "reserve lastReserveTime reserveCooldownExpires walletBalance level"
     );
     if (!user) {
       return res.status(404).json({
@@ -1568,11 +1613,17 @@ export const handelReservestatus = async (req, res) => {
       timeRemaining = user.reserveCooldownExpires.getTime() - now.getTime();
     }
 
+    // Get level limits
+    const userLevel = user.levels || 1;
+    const levelLimits = RESERVE_LIMITS[userLevel] || RESERVE_LIMITS[1];
+
     res.status(200).json({
       success: true,
       data: {
         reserve: user.reserve || 0,
         walletBalance: user.walletBalance || 0,
+        level: userLevel,
+        levelLimits: levelLimits,
         lastReserveTime: user.lastReserveTime,
         reserveCooldownExpires: user.reserveCooldownExpires,
         canReserve: canReserve,
@@ -1598,7 +1649,7 @@ export const handelReserveUser = async (req, res) => {
     const { userId } = req.params;
 
     const user = await User.findById(userId).select(
-      "reserve lastReserveTime reserveCooldownExpires"
+      "reserve lastReserveTime reserveCooldownExpires level"
     );
     if (!user) {
       return res.status(404).json({
@@ -1607,10 +1658,16 @@ export const handelReserveUser = async (req, res) => {
       });
     }
 
+    // Get level limits
+    const userLevel = user.levels || 1;
+    const levelLimits = RESERVE_LIMITS[userLevel] || RESERVE_LIMITS[1];
+
     res.status(200).json({
       success: true,
       data: {
         totalReserve: user.reserve || 0,
+        userLevel: userLevel,
+        levelLimits: levelLimits,
         lastReserveTime: user.lastReserveTime,
         nextReserveAvailable: user.reserveCooldownExpires,
       },
