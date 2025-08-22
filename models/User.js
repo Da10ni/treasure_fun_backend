@@ -484,11 +484,6 @@ const userSchema = new mongoose.Schema(
       type: String, // BEP-20 wallet
       default: null,
     },
-    bankName: {
-      type: String,
-      default: null,
-    },
-
     // Financials
     walletBalance: {
       type: Number,

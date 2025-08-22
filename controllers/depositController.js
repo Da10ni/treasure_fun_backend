@@ -1458,7 +1458,6 @@
 //   }
 // };
 
-
 import Deposit from "../models/deposit.model.js";
 import { referralModel } from "../models/Referral.modal.js";
 import User from "../models/User.js";
