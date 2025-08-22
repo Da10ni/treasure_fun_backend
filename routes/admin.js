@@ -45,6 +45,7 @@ import {
   verifyAndEnableTotp,
   updateNetworkImages,
   getNetworkImages,
+  deleteNetworkImages,
 } from "../controllers/adminController.js";
 import { authenticateAdmin } from "../middleware/auth.js";
 import { checkAuth } from "../controllers/authController.js";
@@ -69,7 +70,7 @@ routes.get("/check-admin", authenticateAdmin, checkAuth);
 routes.route("/logout").post(authenticateAdmin, logout); // Admin logout
 routes.route("/getactiveuser").get(getActiveUsers); // Admin viewing user data
 routes.route("/update/:id").post(authenticateAdmin, updateProfile); // Admin update own profile
-routes.route("/:id").get(authenticateAdmin, getProfile); // Admin get own profile
+// Admin get own profile
 routes.post(
   "/update-network-images",
   authenticateAdmin,
@@ -79,6 +80,9 @@ routes.post(
   ]),
   updateNetworkImages
 );
-routes.get("/network-images", authenticateAdmin, getNetworkImages);
-
+routes.route("/network-images").get(authenticateAdmin, getNetworkImages);
+routes
+  .route("/clear-network-images")
+  .delete(authenticateAdmin, deleteNetworkImages);
+routes.route("/:id").get(authenticateAdmin, getProfile);
 export default routes;

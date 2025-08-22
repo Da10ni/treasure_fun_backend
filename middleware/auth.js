@@ -20,8 +20,13 @@ export const authenticateUser = async (req, res, next) => {
     // JWT token verify karo
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log("🔐 User Auth - Decoded token:", decoded);
+    // console.log("Decoded JWT payload:", decoded);
+    console.log("decoded.userId:", decoded.userId);
+    console.log("decoded.id:", decoded.id);
+    console.log("Type of userId:", typeof decoded.userId);
 
     const userId = decoded.userId || decoded.id;
+    console.log("Final userId:", userId);
 
     // Sirf User collection mein check karo
     const user = await User.findById(userId);
@@ -35,7 +40,7 @@ export const authenticateUser = async (req, res, next) => {
     }
 
     // Active status check
-    if (user.hasOwnProperty('isActive') && !user.isActive) {
+    if (user.hasOwnProperty("isActive") && !user.isActive) {
       console.log(`❌ User account inactive: ${user.username}`);
       return res.status(401).json({
         success: false,
@@ -46,13 +51,14 @@ export const authenticateUser = async (req, res, next) => {
     // Request object mein user info attach karo
     req.userId = userId;
     req.user = user;
-    req.userType = 'user';
+    req.userType = "user";
 
     console.log(`✅ USER authenticated: ${user.username} (ID: ${userId})`);
-    console.log(`💰 User Wallet: ${user.walletBalance}, Tuft Wallet: ${user.tuftWalletBalance}`);
+    console.log(
+      `💰 User Wallet: ${user.walletBalance}, Tuft Wallet: ${user.tuftWalletBalance}`
+    );
 
     next();
-
   } catch (error) {
     console.error("❌ User authentication error:", error);
 
@@ -73,7 +79,7 @@ export const authenticateUser = async (req, res, next) => {
     return res.status(500).json({
       success: false,
       message: "User authentication failed",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -98,12 +104,12 @@ export const authenticateAdmin = async (req, res, next) => {
     console.log("🔐 Admin Auth - Decoded token:", decoded);
 
     const adminId = decoded.userId || decoded.id;
-    console.log("Admin Id in middleWare", adminId)
+    console.log("Admin Id in middleWare", adminId);
 
     // Sirf Admin collection mein check karo
     const admin = await Admin.findById(adminId);
 
-    console.log("admin id check", adminId)
+    console.log("admin id check", adminId);
 
     if (!admin) {
       console.log(`❌ Admin with ID ${adminId} not found`);
@@ -118,13 +124,12 @@ export const authenticateAdmin = async (req, res, next) => {
     // Request object mein admin info attach karo
     req.userId = adminId;
     req.admin = admin;
-    req.userType = 'admin';
+    req.userType = "admin";
 
     console.log(`✅ ADMIN authenticated: ${admin.username} (ID: ${adminId})`);
-    console.log(`📧 Admin Email: ${admin.email || 'Not provided'}`);
+    console.log(`📧 Admin Email: ${admin.email || "Not provided"}`);
 
     next();
-
   } catch (error) {
     console.error("❌ Admin authentication error:", error);
 
@@ -145,7 +150,7 @@ export const authenticateAdmin = async (req, res, next) => {
     return res.status(500).json({
       success: false,
       message: "Admin authentication failed",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
