@@ -1731,16 +1731,21 @@ export const handleRedeem = async (req, res) => {
     const interestAmount = (reservedAmount * interestRate) / 100;
     const totalRedeemAmount = reservedAmount + interestAmount;
 
-    // Get current wallet balance
+    // Get current balances
     const currentWalletBalance = user.walletBalance || 0;
+    const currentAvailableBalance = user.availableBalance || 0;
+    
+    // Calculate new balances
     const newWalletBalance = currentWalletBalance + totalRedeemAmount;
+    const newAvailableBalance = currentAvailableBalance + totalRedeemAmount;
 
-    // Update user - reset reserve and add total to wallet
+    // Update user - reset reserve and add total to both wallet and available balance
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       {
         $set: {
           walletBalance: newWalletBalance,
+          availableBalance: newAvailableBalance, // Update available balance too
           reserve: 0, // Reset reserve to 0
         },
         $unset: {
@@ -1762,6 +1767,7 @@ export const handleRedeem = async (req, res) => {
           username: updatedUser.username,
           email: updatedUser.email,
           walletBalance: updatedUser.walletBalance,
+          availableBalance: updatedUser.availableBalance,
           reserve: updatedUser.reserve,
           level: updatedUser.levels,
         },
@@ -1771,7 +1777,9 @@ export const handleRedeem = async (req, res) => {
           interestAmount: parseFloat(interestAmount.toFixed(2)),
           totalRedeemed: parseFloat(totalRedeemAmount.toFixed(2)),
           previousWalletBalance: currentWalletBalance,
+          previousAvailableBalance: currentAvailableBalance,
           newWalletBalance: parseFloat(newWalletBalance.toFixed(2)),
+          newAvailableBalance: parseFloat(newAvailableBalance.toFixed(2)),
         },
       },
     });

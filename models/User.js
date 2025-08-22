@@ -493,7 +493,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-
+    availableBalance: {
+      type: Number,
+      default: 0,
+    },
     // Order Stats
     order: {
       type: Number,

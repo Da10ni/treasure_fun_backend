@@ -1502,23 +1502,23 @@ export const createDeposit = async (req, res) => {
       referredByCode,
       depositAddress,
       networkFee,
-      networkDescription
+      networkDescription,
     } = req.body;
 
-    console.log('📝 Creating new deposit:', { 
-      userId, 
-      networkType, 
+    console.log("📝 Creating new deposit:", {
+      userId,
+      networkType,
       amount,
       depositAddress,
       networkFee,
-      networkDescription 
+      networkDescription,
     });
 
     // Check if file is uploaded
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'Deposit verification image is required'
+        message: "Deposit verification image is required",
       });
     }
 
@@ -1526,15 +1526,15 @@ export const createDeposit = async (req, res) => {
     if (!userId || !networkType) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: userId and networkType are required'
+        message: "Missing required fields: userId and networkType are required",
       });
     }
 
     // Validate network type
-    if (!['TRC20', 'BEP20'].includes(networkType)) {
+    if (!["TRC20", "BEP20"].includes(networkType)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid network type. Must be TRC20 or BEP20'
+        message: "Invalid network type. Must be TRC20 or BEP20",
       });
     }
 
@@ -1542,7 +1542,7 @@ export const createDeposit = async (req, res) => {
     if (!amount || amount <= 0) {
       return res.status(400).json({
         success: false,
-        message: 'Valid amount is required'
+        message: "Valid amount is required",
       });
     }
 
@@ -1551,48 +1551,7 @@ export const createDeposit = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
-      });
-    }
-
-    // 🔥 LEVEL-BASED DEPOSIT LIMITS
-    const levelDepositLimits = {
-      1: { min: 50, max: 1000 },
-      2: { min: 500, max: 2000 },
-      3: { min: 2000, max: 5000 },
-      4: { min: 5000, max: 10000 },
-      5: { min: 10000, max: 20000 }
-    };
-
-    // Get user's level (default to level 1 if not set)
-    const userLevel = user.level || 1;
-    const depositLimits = levelDepositLimits[userLevel] || levelDepositLimits[1];
-
-    console.log(`📊 User Level: ${userLevel}, Deposit Limits: $${depositLimits.min} - $${depositLimits.max}`);
-
-    // Validate amount against user's level limits
-    if (amount < depositLimits.min) {
-      return res.status(400).json({
-        success: false,
-        message: `Minimum deposit for Level ${userLevel} is $${depositLimits.min}`,
-        data: {
-          userLevel: userLevel,
-          minDeposit: depositLimits.min,
-          maxDeposit: depositLimits.max
-        }
-      });
-    }
-
-    if (amount > depositLimits.max) {
-      return res.status(400).json({
-        success: false,
-        message: `Maximum deposit for Level ${userLevel} is $${depositLimits.max}. Please upgrade your level to deposit more.`,
-        data: {
-          userLevel: userLevel,
-          minDeposit: depositLimits.min,
-          maxDeposit: depositLimits.max,
-          nextLevelMax: userLevel < 5 ? levelDepositLimits[userLevel + 1].max : null
-        }
+        message: "User not found",
       });
     }
 
@@ -1601,31 +1560,31 @@ export const createDeposit = async (req, res) => {
       TRC20: {
         networkFee: 1,
         confirmations: 1,
-        processingTime: '2-30 minutes'
+        processingTime: "2-30 minutes",
       },
       BEP20: {
         networkFee: 0.5,
         confirmations: 15,
-        processingTime: '2-30 minutes'
-      }
+        processingTime: "2-30 minutes",
+      },
     };
 
     const networkConfig = networkConfigs[networkType];
 
     // Upload image to Cloudinary
-    console.log('📤 Uploading image to Cloudinary...');
-    const uploadResult = await uploadToCloudinary(req.file, 'deposits');
+    console.log("📤 Uploading image to Cloudinary...");
+    const uploadResult = await uploadToCloudinary(req.file, "deposits");
 
     // Parse networkFee safely - use default from config if parsing fails
     let parsedNetworkFee = networkConfig.networkFee; // Default value
-    if (networkFee !== undefined && networkFee !== null && networkFee !== '') {
+    if (networkFee !== undefined && networkFee !== null && networkFee !== "") {
       const tempFee = parseFloat(networkFee);
       if (!isNaN(tempFee)) {
         parsedNetworkFee = tempFee;
       }
     }
-    
-    console.log('💰 Network fee to be saved:', parsedNetworkFee);
+
+    console.log("💰 Network fee to be saved:", parsedNetworkFee);
 
     // Create new deposit - Amount wallet me add NAHI hogi until approved
     const newDeposit = new Deposit({
@@ -1634,64 +1593,61 @@ export const createDeposit = async (req, res) => {
       attachment: uploadResult.url,
       amount: parseFloat(amount),
       referredByCode,
-      status: 'pending', // ✅ Pending state - wallet me amount add nahi hui
-      userLevel: userLevel, // Store user's level at the time of deposit
-      
+      status: "pending", // ✅ Pending state - wallet me amount add nahi hui
+
       // Network specific metadata
       depositAddress: depositAddress || null,
       networkFee: parsedNetworkFee, // Use parsed value
       networkDescription: networkDescription || `${networkType} Network`,
-      
+
       // Income calculation fields (to be set when approved)
       dailyIncomeRate: 0, // Will be calculated based on investment plans
       estimatedDuration: 0, // Will be set based on investment plans
     });
 
     await newDeposit.save();
-    console.log('✅ Deposit created with pending status - NO wallet update yet');
+    console.log(
+      "✅ Deposit created with pending status - NO wallet update yet"
+    );
 
     // 🔥 INCREMENT USER'S DEPOSIT COUNT
     await User.findByIdAndUpdate(
-      userId, 
+      userId,
       { $inc: { order: 1 } }, // depositCount ko 1 se increase kar do
       { new: true }
     );
-    console.log('📊 User deposit count incremented');
+    console.log("📊 User deposit count incremented");
 
     // Get the created deposit with populated fields
-    const createdDeposit = await Deposit.findById(newDeposit._id)
-      .populate('userId', 'username name email phone tuftWalletBalance depositCount level');
+    const createdDeposit = await Deposit.findById(newDeposit._id).populate(
+      "userId",
+      "username name email phone tuftWalletBalance depositCount"
+    );
 
     res.status(201).json({
       success: true,
-      message: 'Deposit created successfully and is pending approval',
+      message: "Deposit created successfully and is pending approval",
       data: {
         ...createdDeposit.toObject(),
         networkType: networkType,
         networkConfig: networkConfig,
-        depositLimits: {
-          userLevel: userLevel,
-          minDeposit: depositLimits.min,
-          maxDeposit: depositLimits.max
-        }
       },
-      note: 'Amount will be added to wallet after admin approval'
+      note: "Amount will be added to wallet after admin approval",
     });
-
   } catch (error) {
-    console.error('❌ Error creating deposit:', error);
+    console.error("❌ Error creating deposit:", error);
 
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: 'Duplicate deposit detected'
+        message: "Duplicate deposit detected",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: 'Error creating deposit',
-      error: error.message
+      message: "Error creating deposit",
+      error: error.message,
     });
   }
 };
@@ -1703,9 +1659,9 @@ export const getDepositLimitsByLevel = (level) => {
     2: { min: 500, max: 2000 },
     3: { min: 2000, max: 5000 },
     4: { min: 5000, max: 10000 },
-    5: { min: 10000, max: 20000 }
+    5: { min: 10000, max: 20000 },
   };
-  
+
   return levelDepositLimits[level] || levelDepositLimits[1];
 };
 
@@ -1713,27 +1669,27 @@ export const getDepositLimitsByLevel = (level) => {
 export const getUserDepositLimits = async (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
-    
-    const userLevel = user.level || 1;
+
+    const userLevel = user.levels || 1;
     const depositLimits = getDepositLimitsByLevel(userLevel);
-    
+
     // Get all level limits for comparison
     const allLevelLimits = {
       1: { min: 50, max: 1000 },
       2: { min: 500, max: 2000 },
       3: { min: 2000, max: 5000 },
       4: { min: 5000, max: 10000 },
-      5: { min: 10000, max: 20000 }
+      5: { min: 10000, max: 20000 },
     };
-    
+
     res.status(200).json({
       success: true,
       data: {
@@ -1741,20 +1697,23 @@ export const getUserDepositLimits = async (req, res) => {
         currentLimits: depositLimits,
         allLevels: allLevelLimits,
         canUpgrade: userLevel < 5,
-        nextLevelBenefit: userLevel < 5 ? {
-          level: userLevel + 1,
-          limits: allLevelLimits[userLevel + 1],
-          increasedMax: allLevelLimits[userLevel + 1].max - depositLimits.max
-        } : null
-      }
+        nextLevelBenefit:
+          userLevel < 5
+            ? {
+                level: userLevel + 1,
+                limits: allLevelLimits[userLevel + 1],
+                increasedMax:
+                  allLevelLimits[userLevel + 1].max - depositLimits.max,
+              }
+            : null,
+      },
     });
-    
   } catch (error) {
-    console.error('❌ Error fetching deposit limits:', error);
+    console.error("❌ Error fetching deposit limits:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching deposit limits',
-      error: error.message
+      message: "Error fetching deposit limits",
+      error: error.message,
     });
   }
 };
@@ -1765,12 +1724,7 @@ export const getUserDepositLimits = async (req, res) => {
 export const approveDeposit = async (req, res) => {
   try {
     const { depositId } = req.params;
-    const { 
-      approvedBy, 
-      notes,
-      incomeDuration, // Optional: custom income duration in days
-      dailyIncomeRate // Optional: custom daily income rate in percentage
-    } = req.body;
+    const { approvedBy, notes } = req.body;
 
     console.log(`🔍 Processing deposit approval for ID: ${depositId}`);
 
@@ -1800,15 +1754,10 @@ export const approveDeposit = async (req, res) => {
       });
     }
 
-    // Get network configuration
-    const networkConfig = NETWORK_CONFIGS[deposit.networkType];
-    
-    // Use custom values or defaults from network config
-    const duration = incomeDuration || networkConfig.defaultDuration;
-    const incomeRate = dailyIncomeRate || networkConfig.defaultIncomeRate;
-
     // STEP 1: Add deposit amount to user's WALLET BALANCE
-    console.log(`💰 Adding deposit amount ${deposit.amount} to user ${currentUser.username}'s walletBalance`);
+    console.log(
+      `💰 Adding deposit amount ${deposit.amount} to user ${currentUser.username}'s walletBalance`
+    );
 
     const previousWalletBalance = currentUser.walletBalance || 0;
     currentUser.walletBalance = previousWalletBalance + deposit.amount;
@@ -1818,29 +1767,19 @@ export const approveDeposit = async (req, res) => {
 
     await currentUser.save();
 
-    console.log(`✅ User wallet updated: ${previousWalletBalance} → ${currentUser.walletBalance}`);
+    console.log(
+      `✅ User wallet updated: ${previousWalletBalance} → ${currentUser.walletBalance}`
+    );
     console.log(`📊 User buy count incremented to: ${currentUser.buy}`);
 
-    // STEP 2: Set up income duration tracking
-    const currentDate = new Date();
-    const incomeEndDate = new Date(currentDate);
-    incomeEndDate.setDate(currentDate.getDate() + duration);
-
-    // Calculate daily income amount
-    const dailyIncomePercentage = incomeRate / 100;
-    const dailyIncomeAmount = deposit.amount * dailyIncomePercentage;
-
-    console.log(`📅 Income period: ${duration} days`);
-    console.log(`💰 Daily income: ${dailyIncomeAmount} (${incomeRate}% of ${deposit.amount})`);
-    console.log(`📅 Income start: ${currentDate}`);
-    console.log(`📅 Income end: ${incomeEndDate}`);
-
-    // STEP 3: Handle referral bonus
+    // STEP 2: Handle referral bonus
     let referralBonusInfo = null;
 
     try {
       if (currentUser.referredByCode) {
-        console.log(`🔍 User was referred with code: ${currentUser.referredByCode}`);
+        console.log(
+          `🔍 User was referred with code: ${currentUser.referredByCode}`
+        );
 
         const referrer = await User.findOne({
           myReferralCode: currentUser.referredByCode,
@@ -1858,7 +1797,8 @@ export const approveDeposit = async (req, res) => {
             const bonusAmount = deposit.amount * bonusPercentage;
 
             const referrerPreviousTuftBalance = referrer.tuftWalletBalance || 0;
-            referrer.tuftWalletBalance = referrerPreviousTuftBalance + bonusAmount;
+            referrer.tuftWalletBalance =
+              referrerPreviousTuftBalance + bonusAmount;
 
             if (!referrer.referredUsers.includes(currentUser._id)) {
               referrer.referredUsers.push(currentUser._id);
@@ -1882,18 +1822,11 @@ export const approveDeposit = async (req, res) => {
       console.error("❌ Error processing referral bonus:", referralError);
     }
 
-    // STEP 4: Update deposit with income tracking info
+    // STEP 3: Update deposit status only
     deposit.status = "approved";
     deposit.approvedBy = approvedBy;
     deposit.approvedAt = new Date();
     deposit.notes = notes;
-    deposit.incomeStartDate = currentDate;
-    deposit.incomeEndDate = incomeEndDate;
-    deposit.isIncomeActive = true;
-    deposit.dailyIncomeRate = incomeRate;
-    deposit.dailyIncomeAmount = dailyIncomeAmount;
-    deposit.estimatedDuration = duration;
-    deposit.lastIncomeDate = null;
     await deposit.save();
 
     console.log(`✅ Deposit ${depositId} approved successfully`);
@@ -1906,7 +1839,7 @@ export const approveDeposit = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Deposit approved successfully with income tracking",
+      message: "Deposit approved successfully",
       data: {
         deposit: updatedDeposit,
         userWalletUpdate: {
@@ -1914,15 +1847,6 @@ export const approveDeposit = async (req, res) => {
           amountAdded: deposit.amount,
           newWalletBalance: currentUser.walletBalance,
           buyCount: currentUser.buy,
-        },
-        incomeInfo: {
-          duration: duration,
-          dailyIncomeRate: incomeRate,
-          dailyIncomeAmount: dailyIncomeAmount,
-          totalIncomeExpected: dailyIncomeAmount * duration,
-          incomeStartDate: currentDate,
-          incomeEndDate: incomeEndDate,
-          remainingDays: duration,
         },
         referralBonus: referralBonusInfo,
       },
@@ -2026,7 +1950,7 @@ export const getDeposits = async (req, res) => {
 
     // Build filter object
     const filter = {};
-    
+
     if (status) filter.status = status;
     if (userId) filter.userId = userId;
     if (networkType) {
@@ -2039,11 +1963,11 @@ export const getDeposits = async (req, res) => {
         });
       }
     }
-    
+
     if (isIncomeActive !== undefined) {
       filter.isIncomeActive = isIncomeActive === "true";
     }
-    
+
     // Date range filter
     if (startDate || endDate) {
       filter.createdAt = {};
@@ -2057,7 +1981,10 @@ export const getDeposits = async (req, res) => {
 
     // Get deposits
     const deposits = await Deposit.find(filter)
-      .populate("userId", "username name email phone tuftWalletBalance depositCount")
+      .populate(
+        "userId",
+        "username name email phone tuftWalletBalance depositCount"
+      )
       .sort({ [sortBy]: sortOrder })
       .skip(skip)
       .limit(parseInt(limit));
@@ -2069,7 +1996,9 @@ export const getDeposits = async (req, res) => {
         ...depositObj,
         networkInfo: NETWORK_CONFIGS[deposit.networkType] || null,
         daysRemaining: deposit.isIncomeActive ? deposit.getRemainingDays() : 0,
-        incomeProgress: deposit.isIncomeActive ? deposit.getProgressPercentage() : 0,
+        incomeProgress: deposit.isIncomeActive
+          ? deposit.getProgressPercentage()
+          : 0,
       };
     });
 
@@ -2158,7 +2087,9 @@ export const getDepositById = async (req, res) => {
       ...deposit.toObject(),
       networkInfo: NETWORK_CONFIGS[deposit.networkType] || null,
       daysRemaining: deposit.isIncomeActive ? deposit.getRemainingDays() : 0,
-      incomeProgress: deposit.isIncomeActive ? deposit.getProgressPercentage() : 0,
+      incomeProgress: deposit.isIncomeActive
+        ? deposit.getProgressPercentage()
+        : 0,
     };
 
     res.status(200).json({
@@ -2210,7 +2141,10 @@ export const updateDepositDetails = async (req, res) => {
     if (amount !== undefined) {
       // Validate amount against network limits
       const networkConfig = NETWORK_CONFIGS[deposit.networkType];
-      if (amount < networkConfig.minDeposit || amount > networkConfig.maxDeposit) {
+      if (
+        amount < networkConfig.minDeposit ||
+        amount > networkConfig.maxDeposit
+      ) {
         return res.status(400).json({
           success: false,
           message: `Amount must be between ${networkConfig.minDeposit} and ${networkConfig.maxDeposit}`,
@@ -2218,9 +2152,9 @@ export const updateDepositDetails = async (req, res) => {
       }
       deposit.amount = amount;
     }
-    
+
     if (referredByCode !== undefined) deposit.referredByCode = referredByCode;
-    
+
     // Allow network type change if needed
     if (networkType && ["TRC20", "BEP20"].includes(networkType)) {
       deposit.networkType = networkType;
@@ -2292,17 +2226,28 @@ export const getUserDeposits = async (req, res) => {
       pendingDeposits: deposits.filter((d) => d.status === "pending").length,
       approvedDeposits: deposits.filter((d) => d.status === "approved").length,
       rejectedDeposits: deposits.filter((d) => d.status === "rejected").length,
-      totalIncomeEarned: deposits.reduce((sum, d) => sum + (d.totalIncomeEarned || 0), 0),
+      totalIncomeEarned: deposits.reduce(
+        (sum, d) => sum + (d.totalIncomeEarned || 0),
+        0
+      ),
       depositsByNetwork: {
         TRC20: {
           count: depositsByNetwork.TRC20.length,
-          totalAmount: depositsByNetwork.TRC20.reduce((sum, d) => sum + (d.amount || 0), 0),
-          activeCount: depositsByNetwork.TRC20.filter((d) => d.isIncomeActive).length,
+          totalAmount: depositsByNetwork.TRC20.reduce(
+            (sum, d) => sum + (d.amount || 0),
+            0
+          ),
+          activeCount: depositsByNetwork.TRC20.filter((d) => d.isIncomeActive)
+            .length,
         },
         BEP20: {
           count: depositsByNetwork.BEP20.length,
-          totalAmount: depositsByNetwork.BEP20.reduce((sum, d) => sum + (d.amount || 0), 0),
-          activeCount: depositsByNetwork.BEP20.filter((d) => d.isIncomeActive).length,
+          totalAmount: depositsByNetwork.BEP20.reduce(
+            (sum, d) => sum + (d.amount || 0),
+            0
+          ),
+          activeCount: depositsByNetwork.BEP20.filter((d) => d.isIncomeActive)
+            .length,
         },
       },
     };
@@ -2312,7 +2257,9 @@ export const getUserDeposits = async (req, res) => {
       ...deposit.toObject(),
       networkInfo: NETWORK_CONFIGS[deposit.networkType] || null,
       daysRemaining: deposit.isIncomeActive ? deposit.getRemainingDays() : 0,
-      incomeProgress: deposit.isIncomeActive ? deposit.getProgressPercentage() : 0,
+      incomeProgress: deposit.isIncomeActive
+        ? deposit.getProgressPercentage()
+        : 0,
     }));
 
     res.status(200).json({
@@ -2395,7 +2342,9 @@ export const processDailyIncome = async () => {
       incomeEndDate: { $gt: new Date() },
     }).populate("userId");
 
-    console.log(`📊 Found ${activeDeposits.length} active deposits for income processing`);
+    console.log(
+      `📊 Found ${activeDeposits.length} active deposits for income processing`
+    );
 
     for (const deposit of activeDeposits) {
       try {
@@ -2417,8 +2366,13 @@ export const processDailyIncome = async () => {
         }
 
         // Skip if income already credited today
-        if (lastIncomeDate && lastIncomeDate.getTime() === todayDateOnly.getTime()) {
-          console.log(`⏭️  Income already credited today for deposit ${deposit._id}`);
+        if (
+          lastIncomeDate &&
+          lastIncomeDate.getTime() === todayDateOnly.getTime()
+        ) {
+          console.log(
+            `⏭️  Income already credited today for deposit ${deposit._id}`
+          );
           continue;
         }
 
@@ -2426,19 +2380,28 @@ export const processDailyIncome = async () => {
         const user = await User.findById(deposit.userId);
         if (user) {
           const previousTuftBalance = user.tuftWalletBalance || 0;
-          user.tuftWalletBalance = previousTuftBalance + deposit.dailyIncomeAmount;
+          user.tuftWalletBalance =
+            previousTuftBalance + deposit.dailyIncomeAmount;
           await user.save();
 
           // Update deposit tracking
-          deposit.totalIncomeEarned = (deposit.totalIncomeEarned || 0) + deposit.dailyIncomeAmount;
+          deposit.totalIncomeEarned =
+            (deposit.totalIncomeEarned || 0) + deposit.dailyIncomeAmount;
           deposit.lastIncomeDate = today;
           await deposit.save();
 
-          console.log(`💰 Credited ${deposit.dailyIncomeAmount} to ${user.username} (Deposit: ${deposit._id})`);
-          console.log(`📊 User tuftWalletBalance: ${previousTuftBalance} → ${user.tuftWalletBalance}`);
+          console.log(
+            `💰 Credited ${deposit.dailyIncomeAmount} to ${user.username} (Deposit: ${deposit._id})`
+          );
+          console.log(
+            `📊 User tuftWalletBalance: ${previousTuftBalance} → ${user.tuftWalletBalance}`
+          );
         }
       } catch (error) {
-        console.error(`❌ Error processing income for deposit ${deposit._id}:`, error);
+        console.error(
+          `❌ Error processing income for deposit ${deposit._id}:`,
+          error
+        );
       }
     }
 
