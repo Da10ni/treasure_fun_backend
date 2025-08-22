@@ -1458,6 +1458,16 @@ const RESERVE_LIMITS = {
   5: { min: 10000, max: 20000 },
 };
 
+const getInterestRateByLevel = (level) => {
+  const interestRates = {
+    1: 1.8,
+    2: 2.1,
+    3: 3.1,
+    4: 3.7,
+    5: 4.0,
+  };
+  return interestRates[level] || 1.8;
+};
 export const handelReserve = async (req, res) => {
   try {
     const { userId, reserveAmount } = req.body;
@@ -1677,6 +1687,103 @@ export const handelReserveUser = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+};
+
+// Add this to your authController.js file
+
+export const handleRedeem = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    // Validation
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if user has any reserved amount
+    const reservedAmount = user.reserve || 0;
+    if (reservedAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No reserved amount found to redeem",
+      });
+    }
+
+    // Get user level for interest calculation
+    const userLevel = user.levels || 1;
+    const interestRate = getInterestRateByLevel(userLevel);
+
+    // Calculate interest
+    const interestAmount = (reservedAmount * interestRate) / 100;
+    const totalRedeemAmount = reservedAmount + interestAmount;
+
+    // Get current wallet balance
+    const currentWalletBalance = user.walletBalance || 0;
+    const newWalletBalance = currentWalletBalance + totalRedeemAmount;
+
+    // Update user - reset reserve and add total to wallet
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          walletBalance: newWalletBalance,
+          reserve: 0, // Reset reserve to 0
+        },
+        $unset: {
+          lastReserveTime: "",
+          reserveCooldownExpires: "",
+        },
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully redeemed $${totalRedeemAmount.toFixed(
+        2
+      )} to your wallet!`,
+      data: {
+        user: {
+          _id: updatedUser._id,
+          username: updatedUser.username,
+          email: updatedUser.email,
+          walletBalance: updatedUser.walletBalance,
+          reserve: updatedUser.reserve,
+          level: updatedUser.levels,
+        },
+        redemption: {
+          reservedAmount: reservedAmount,
+          interestRate: interestRate,
+          interestAmount: parseFloat(interestAmount.toFixed(2)),
+          totalRedeemed: parseFloat(totalRedeemAmount.toFixed(2)),
+          previousWalletBalance: currentWalletBalance,
+          newWalletBalance: parseFloat(newWalletBalance.toFixed(2)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("❌ Redeem error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Something went wrong",
     });
   }
 };
