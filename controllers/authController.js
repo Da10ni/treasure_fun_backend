@@ -1,4 +1,5 @@
 import User, { PasswordResetCode, ReferralCode } from "../models/User.js";
+import Network from "../models/Network.js";
 import jwt from "jsonwebtoken";
 import { sendReferralCodeEmail } from "../services/emailService.js";
 import {
@@ -9,6 +10,7 @@ import {
   validateSignupInput,
 } from "../methods/methods.js";
 import Deposit from "../models/deposit.model.js";
+import mongoose from "mongoose";
 
 // Generate and send email verification code
 export const generateReferralCodeForEmail = async (req, res) => {
@@ -995,7 +997,6 @@ export const getMyDeposits = async (req, res) => {
       userId: userId,
       status: "approved",
     })
-      .populate("productId", "title image priceRange")
       .sort({ updatedAt: -1 })
       .select("amount updatedAt productId createdAt referredBy attachment");
 
@@ -1552,6 +1553,7 @@ export const handelReserve = async (req, res) => {
     const currentReserve = user.reserve || 0;
     const newReserveAmount = currentReserve + parseFloat(reserveAmount);
     const cooldownExpiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+    const availableBalance = walletBalance - newReserveAmount;
 
     // Update user
     const updatedUser = await User.findByIdAndUpdate(
@@ -1559,6 +1561,7 @@ export const handelReserve = async (req, res) => {
       {
         $set: {
           reserve: newReserveAmount,
+          availableBalance: availableBalance,
           lastReserveTime: now,
           reserveCooldownExpires: cooldownExpiry,
         },
@@ -1577,6 +1580,7 @@ export const handelReserve = async (req, res) => {
           walletBalance: updatedUser.walletBalance,
           reserve: updatedUser.reserve,
           level: updatedUser.levels,
+          availableBalance: updatedUser.availableBalance,
           lastReserveTime: updatedUser.lastReserveTime,
           reserveCooldownExpires: updatedUser.reserveCooldownExpires,
         },
@@ -1729,15 +1733,27 @@ export const handleRedeem = async (req, res) => {
 
     // Calculate interest
     const interestAmount = (reservedAmount * interestRate) / 100;
-    const totalRedeemAmount = reservedAmount + interestAmount;
+    // const totalRedeemAmount = reservedAmount + interestAmount;
 
     // Get current balances
     const currentWalletBalance = user.walletBalance || 0;
     const currentAvailableBalance = user.availableBalance || 0;
-    
+
     // Calculate new balances
-    const newWalletBalance = currentWalletBalance + totalRedeemAmount;
-    const newAvailableBalance = currentAvailableBalance + totalRedeemAmount;
+    const newWalletBalance = currentWalletBalance + interestAmount;
+    // const newAvailableBalance = currentAvailableBalance + totalRedeemAmount;
+
+    const now = new Date();
+    let todaysEarning = user.todaysEarning || 0;
+
+    // reset if different day
+    if (
+      user.lastRedeemAt &&
+      user.lastRedeemAt.toDateString() !== now.toDateString()
+    ) {
+      todaysEarning = 0;
+    }
+    todaysEarning += interestAmount;
 
     // Update user - reset reserve and add total to both wallet and available balance
     const updatedUser = await User.findByIdAndUpdate(
@@ -1745,8 +1761,10 @@ export const handleRedeem = async (req, res) => {
       {
         $set: {
           walletBalance: newWalletBalance,
-          availableBalance: newAvailableBalance, // Update available balance too
+          // availableBalance: newAvailableBalance, // Update available balance too
           reserve: 0, // Reset reserve to 0
+          todaysEarning: parseFloat(todaysEarning.toFixed(2)),
+          lastRedeemAt: now,
         },
         $unset: {
           lastReserveTime: "",
@@ -1758,9 +1776,8 @@ export const handleRedeem = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Successfully redeemed $${totalRedeemAmount.toFixed(
-        2
-      )} to your wallet!`,
+      message: `Successfully redeemed 
+     to your wallet!`,
       data: {
         user: {
           _id: updatedUser._id,
@@ -1770,16 +1787,18 @@ export const handleRedeem = async (req, res) => {
           availableBalance: updatedUser.availableBalance,
           reserve: updatedUser.reserve,
           level: updatedUser.levels,
+          todaysEarning: updatedUser.todaysEarning,
+          lastRedeemAt: updatedUser.lastRedeemAt,
         },
         redemption: {
           reservedAmount: reservedAmount,
           interestRate: interestRate,
           interestAmount: parseFloat(interestAmount.toFixed(2)),
-          totalRedeemed: parseFloat(totalRedeemAmount.toFixed(2)),
+          // totalRedeemed: parseFloat(totalRedeemAmount.toFixed(2)),
           previousWalletBalance: currentWalletBalance,
           previousAvailableBalance: currentAvailableBalance,
           newWalletBalance: parseFloat(newWalletBalance.toFixed(2)),
-          newAvailableBalance: parseFloat(newAvailableBalance.toFixed(2)),
+          // newAvailableBalance: parseFloat(newAvailableBalance.toFixed(2)),
         },
       },
     });
@@ -1792,6 +1811,73 @@ export const handleRedeem = async (req, res) => {
         process.env.NODE_ENV === "development"
           ? error.message
           : "Something went wrong",
+    });
+  }
+};
+
+export const getTodaysEarning = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId).select(
+      "todaysEarning lastRedeemAt"
+    );
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    const now = new Date();
+    let todays = user.todaysEarning || 0;
+    if (
+      user.lastRedeemAt &&
+      user.lastRedeemAt.toDateString() !== now.toDateString()
+    ) {
+      todays = 0; // reset if new day
+    }
+
+    res.json({ success: true, data: { todaysEarning: todays } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const getNetworkImages = async (req, res) => {
+  try {
+    const userId = req.userId; // from auth middleware
+
+    if (!userId || !mongoose.isValidObjectId(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    // Get the active network configuration (created by any admin)
+    const network = await Network.findOne({
+      isActive: true,
+    })
+      .populate("createdBy", "name email")
+      .sort({ updatedAt: -1 });
+
+    if (!network) {
+      return res.status(404).json({
+        success: false,
+        message: "Network configuration not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Network data fetched successfully",
+      data: { network },
+    });
+  } catch (e) {
+    console.error("Error fetching network images:", e);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? e.message : undefined,
     });
   }
 };

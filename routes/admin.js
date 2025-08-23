@@ -72,7 +72,7 @@ routes.route("/getactiveuser").get(getActiveUsers); // Admin viewing user data
 routes.route("/update/:id").post(authenticateAdmin, updateProfile); // Admin update own profile
 // Admin get own profile
 routes.post(
-  "/update-network-images",
+  "/networks/update",
   authenticateAdmin,
   upload.fields([
     { name: "bep20Img", maxCount: 1 },
@@ -80,9 +80,11 @@ routes.post(
   ]),
   updateNetworkImages
 );
-routes.route("/network-images").get(authenticateAdmin, getNetworkImages);
+// routes.route("/network-images").get(authenticateAdmin, getNetworkImages);
+// routes.post("/networks/update", authenticateAdmin, updateNetworkImages);
+routes.get("/networks", authenticateAdmin, getNetworkImages);
 routes
-  .route("/clear-network-images")
+  .route("/networks/clear")
   .delete(authenticateAdmin, deleteNetworkImages);
 routes.route("/:id").get(authenticateAdmin, getProfile);
 export default routes;

@@ -78,7 +78,6 @@ const productSchema = new mongoose.Schema(
             min: 0,
             max: 100
         },
-        // 🔥 NEW FIELD: Duration in days
         duration: {
             type: Number,
             required: true,

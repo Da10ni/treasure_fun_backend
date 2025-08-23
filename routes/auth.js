@@ -23,8 +23,11 @@ import {
   handelReservestatus,
   checkUserFreezeStatusEnhanced,
   handleRedeem,
+  getTodaysEarning,
+  getNetworkImages,
 } from "../controllers/authController.js";
 import { authenticateUser, authenticateAdmin } from "../middleware/auth.js";
+import { handleStake } from "../controllers/stake.controller.js";
 
 const router = express.Router();
 
@@ -43,7 +46,11 @@ router.post("/password/reset", resetPassword);
 
 // 🔥 UPDATED: Enhanced freeze status routes
 router.get("/freeze-status", authenticateUser, checkUserFreezeStatusEnhanced); // User's own status
-router.get("/freeze-status/:userId", authenticateUser, checkUserFreezeStatusEnhanced); // Specific user
+router.get(
+  "/freeze-status/:userId",
+  authenticateUser,
+  checkUserFreezeStatusEnhanced
+); // Specific user
 
 router.post("/admin/unfreeze-expired", authenticateUser, async (req, res) => {
   try {
@@ -78,6 +85,10 @@ router.get("/user/:userId/reserves", authenticateUser, handelReserveUser);
 router.post("/redeem", authenticateUser, handleRedeem);
 // Password Change Route (Authenticated)
 router.post("/password/change", authenticateUser, changePassword); // User - Change password
+router.get("/today-earnings/:userId", authenticateUser, getTodaysEarning);
+router.get('/networks', authenticateUser, getNetworkImages);
+
+router.post('/stakes/create', authenticateUser, handleStake);
 
 // =============================================
 // ADMIN-ONLY ROUTES (authenticateAdmin)

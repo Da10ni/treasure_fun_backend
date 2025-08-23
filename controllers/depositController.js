@@ -1461,6 +1461,7 @@
 import Deposit from "../models/deposit.model.js";
 import { referralModel } from "../models/Referral.modal.js";
 import User from "../models/User.js";
+import { productModel } from "../models/Product.js";
 import {
   uploadToCloudinary,
   deleteFromCloudinary,
@@ -1760,7 +1761,9 @@ export const approveDeposit = async (req, res) => {
     );
 
     const previousWalletBalance = currentUser.walletBalance || 0;
+    const previousAvailableBalance = currentUser.availableBalance || 0;
     currentUser.walletBalance = previousWalletBalance + deposit.amount;
+    currentUser.availableBalance = previousAvailableBalance + deposit.amount;
 
     // INCREMENT USER'S BUY COUNT
     currentUser.buy = (currentUser.buy || 0) + 1;

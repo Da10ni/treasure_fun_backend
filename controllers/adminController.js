@@ -259,6 +259,7 @@
 
 import { generateToken } from "../methods/methods.js";
 import Admin from "../models/Admin.js";
+import Network from "../models/Network.js";
 import User from "../models/User.js";
 import { uploadToCloudinary } from "../services/cloudinaryService.js";
 import mongoose from "mongoose";
@@ -547,131 +548,267 @@ const getActiveUsers = async (_, res) => {
     });
   }
 };
+// const updateNetworkImages = async (req, res) => {
+//   try {
+//     const { bep20Id, trc20Id } = req.body;
+//     const files = req.files || {};
+//     const adminId = req.userId;
+
+//     const admin = await Admin.findById(adminId);
+//     if (!admin) {
+//       return res
+//         .status(404)
+//         .json({ message: "Admin not found", success: false });
+//     }
+
+//     admin.networks ||= {};
+//     let updated = false;
+
+//     if (files.bep20Img?.[0]) {
+//       const result = await uploadToCloudinary(files.bep20Img[0], "networks");
+//       admin.networks.bep20Img = result.url; // <-- string URL
+//       updated = true;
+//     }
+//     if (files.trc20Img?.[0]) {
+//       const result = await uploadToCloudinary(files.trc20Img[0], "networks");
+//       admin.networks.trc20Img = result.url; // <-- string URL
+//       updated = true;
+//     }
+//     if (bep20Id?.trim()) {
+//       admin.networks.bep20Id = bep20Id.trim();
+//       updated = true;
+//     }
+//     if (trc20Id?.trim()) {
+//       admin.networks.trc20Id = trc20Id.trim();
+//       updated = true;
+//     }
+
+//     if (!updated) {
+//       return res
+//         .status(400)
+//         .json({ message: "No valid data provided for update", success: false });
+//     }
+
+//     await admin.save();
+
+//     return res.status(200).json({
+//       message: "Network images and data updated successfully",
+//       success: true,
+//       data: { networks: admin.networks }, // contains string URLs
+//     });
+//   } catch (error) {
+//     console.error("Error updating network images:", error);
+//     return res
+//       .status(500)
+//       .json({ message: "Internal server error", success: false });
+//   }
+// };
+
+// const getNetworkImages = async (req, res) => {
+//   try {
+//     const adminId = req.userId; // set by authenticateAdmin
+//     console.log("Admin ID in getNetworkImages:", adminId);
+
+//     if (!adminId) {
+//       return res.status(401).json({ success: false, message: "Unauthorized" });
+//     }
+
+//     // ✅ validate before querying
+//     if (!mongoose.isValidObjectId(adminId)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid admin ID format sDASEFGREHTTYJ",
+//       });
+//     }
+
+//     const admin = await Admin.findById(adminId).select("networks").lean();
+//     if (!admin) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Admin not found" });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Network data fetched successfully",
+//       data: { networks: admin.networks || {} },
+//     });
+//   } catch (e) {
+//     console.error("Error fetching network images:", e);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//       error: process.env.NODE_ENV === "development" ? e.message : undefined,
+//     });
+//   }
+// };
+
+// controllers/adminController.js
+
+// Update/Create Network (Admin Only)
 const updateNetworkImages = async (req, res) => {
   try {
     const { bep20Id, trc20Id } = req.body;
     const files = req.files || {};
     const adminId = req.userId;
 
+    // Check if admin exists
     const admin = await Admin.findById(adminId);
     if (!admin) {
-      return res
-        .status(404)
-        .json({ message: "Admin not found", success: false });
+      return res.status(404).json({
+        message: "Admin not found",
+        success: false,
+      });
     }
 
-    admin.networks ||= {};
+    // Find existing network or create new one (only one network config)
+    let network = await Network.findOne({ createdBy: adminId });
+
+    if (!network) {
+      network = new Network({
+        createdBy: adminId,
+      });
+    }
+
     let updated = false;
 
+    // Upload images if provided
     if (files.bep20Img?.[0]) {
       const result = await uploadToCloudinary(files.bep20Img[0], "networks");
-      admin.networks.bep20Img = result.url; // <-- string URL
+      network.bep20Img = result.url;
       updated = true;
     }
+
     if (files.trc20Img?.[0]) {
       const result = await uploadToCloudinary(files.trc20Img[0], "networks");
-      admin.networks.trc20Img = result.url; // <-- string URL
+      network.trc20Img = result.url;
       updated = true;
     }
+
+    // Update IDs if provided
     if (bep20Id?.trim()) {
-      admin.networks.bep20Id = bep20Id.trim();
+      network.bep20Id = bep20Id.trim();
       updated = true;
     }
+
     if (trc20Id?.trim()) {
-      admin.networks.trc20Id = trc20Id.trim();
+      network.trc20Id = trc20Id.trim();
       updated = true;
     }
 
     if (!updated) {
-      return res
-        .status(400)
-        .json({ message: "No valid data provided for update", success: false });
+      return res.status(400).json({
+        message: "No valid data provided for update",
+        success: false,
+      });
     }
 
-    await admin.save();
+    await network.save();
 
     return res.status(200).json({
       message: "Network images and data updated successfully",
       success: true,
-      data: { networks: admin.networks }, // contains string URLs
+      data: { network },
     });
   } catch (error) {
     console.error("Error updating network images:", error);
-    return res
-      .status(500)
-      .json({ message: "Internal server error", success: false });
+    return res.status(500).json({
+      message: "Internal server error",
+      success: false,
+    });
   }
 };
 
+// Get Networks (Admin)
 const getNetworkImages = async (req, res) => {
   try {
-    const adminId = req.userId; // set by authenticateAdmin
-    console.log("Admin ID in getNetworkImages:", adminId);
+    const adminId = req.userId;
 
-    if (!adminId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
-
-    // ✅ validate before querying
-    if (!mongoose.isValidObjectId(adminId)) {
-      return res.status(400).json({
+    if (!adminId || !mongoose.isValidObjectId(adminId)) {
+      return res.status(401).json({
         success: false,
-        message: "Invalid admin ID format sDASEFGREHTTYJ",
+        message: "Unauthorized",
       });
     }
 
-    const admin = await Admin.findById(adminId).select("networks").lean();
-    if (!admin) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Admin not found" });
+    // Get the network config (should be only one)
+    const network = await Network.findOne({
+      createdBy: adminId,
+      isActive: true,
+    }).populate("createdBy", "name email");
+
+    if (!network) {
+      return res.status(404).json({
+        success: false,
+        message: "Network configuration not found",
+      });
     }
 
     return res.status(200).json({
       success: true,
       message: "Network data fetched successfully",
-      data: { networks: admin.networks || {} },
+      data: { network },
     });
   } catch (e) {
     console.error("Error fetching network images:", e);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
-      error: process.env.NODE_ENV === "development" ? e.message : undefined,
+      error: e.message,
     });
   }
 };
 
 const deleteNetworkImages = async (req, res) => {
   try {
-    const adminId = req.userId; // set by authenticateAdmin
-    console.log("Admin ID in deleteNetworkImages:", adminId);
+    const adminId = req.userId; // from auth middleware
 
-    if (!adminId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
-
-    // ✅ validate before querying
-    if (!mongoose.isValidObjectId(adminId)) {
-      return res.status(400).json({
+    if (!adminId || !mongoose.isValidObjectId(adminId)) {
+      return res.status(401).json({
         success: false,
-        message: "Invalid admin ID format",
+        message: "Unauthorized",
       });
     }
 
     const admin = await Admin.findById(adminId);
     if (!admin) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Admin not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found",
+      });
+    }
+    const deletedNetwork = await Network.findOneAndDelete({
+      createdBy: adminId,
+    });
+
+    if (!deletedNetwork) {
+      return res.status(404).json({
+        success: false,
+        message: "No network data found to delete",
+      });
     }
 
-    admin.networks = {}; // Clear all network images and data
-    await admin.save();
+    if (deletedNetwork.trc20Img) {
+      try {
+        const publicId = deletedNetwork.trc20Img.split("/").pop().split(".")[0];
+        await cloudinary.uploader.destroy(`networks/${publicId}`);
+      } catch (cloudinaryError) {
+        console.log(
+          "Failed to delete trc20 image from Cloudinary:",
+          cloudinaryError
+        );
+      }
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Network images and data deleted successfully",
+      message: "Network data deleted successfully",
+      deletedData: {
+        id: deletedNetwork._id,
+        bep20Id: deletedNetwork.bep20Id,
+        trc20Id: deletedNetwork.trc20Id,
+        hadImages: !!(deletedNetwork.bep20Img || deletedNetwork.trc20Img),
+      },
     });
   } catch (error) {
     console.error("Error deleting network images:", error);
@@ -682,6 +819,7 @@ const deleteNetworkImages = async (req, res) => {
     });
   }
 };
+
 export {
   login,
   logout,

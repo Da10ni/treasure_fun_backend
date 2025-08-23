@@ -540,6 +540,9 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    totalStaked: { type: Number, default: 0 },
+    todaysEarning: { type: Number, default: 0 },
+    lastRedeemAt: { type: Date, default: null },
   },
   {
     timestamps: true,
