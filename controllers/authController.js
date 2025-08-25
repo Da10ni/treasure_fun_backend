@@ -12,6 +12,10 @@ import {
 import Deposit from "../models/deposit.model.js";
 import mongoose from "mongoose";
 
+const formatAmount = (amount) => {
+  return parseFloat(parseFloat(amount).toFixed(2));
+};
+
 // Generate and send email verification code
 export const generateReferralCodeForEmail = async (req, res) => {
   try {
@@ -1480,8 +1484,9 @@ export const handelReserve = async (req, res) => {
         message: "User ID and reserve amount are required",
       });
     }
+    const formattedReserveAmount = formatAmount(reserveAmount);
 
-    if (reserveAmount <= 0) {
+    if (formattedReserveAmount <= 0) {
       return res.status(400).json({
         success: false,
         message: "Reserve amount must be greater than 0",
@@ -1512,7 +1517,7 @@ export const handelReserve = async (req, res) => {
     const { min, max } = RESERVE_LIMITS[userLevel];
 
     // Validate amount against level limits
-    if (reserveAmount < min || reserveAmount > max) {
+    if (formattedReserveAmount < min || formattedReserveAmount > max) {
       return res.status(400).json({
         success: false,
         message: `Reserve amount must be between $${min} and $${max} for level ${userLevel}`,
@@ -1520,7 +1525,7 @@ export const handelReserve = async (req, res) => {
           userLevel,
           minAmount: min,
           maxAmount: max,
-          requestedAmount: reserveAmount,
+          requestedAmount: formattedReserveAmount,
         },
       });
     }
@@ -1528,7 +1533,7 @@ export const handelReserve = async (req, res) => {
     // Check wallet balance
     const walletBalance = user.walletBalance || 0;
     const currentAvailableBalance = user.availableBalance || 0;
-    if (reserveAmount > currentAvailableBalance) {
+    if (formattedReserveAmount > currentAvailableBalance) {
       return res.status(400).json({
         success: false,
         message: "Insufficient wallet balance",
@@ -1552,9 +1557,9 @@ export const handelReserve = async (req, res) => {
 
     // Calculate new reserve amount and cooldown expiry
     const currentReserve = user.reserve || 0;
-    const newReserveAmount = currentReserve + parseFloat(reserveAmount);
+    const newReserveAmount = formatAmount(currentReserve + formattedReserveAmount);
     const cooldownExpiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
-    const availableBalance = currentAvailableBalance - reserveAmount;
+    const availableBalance = formatAmount(currentAvailableBalance - formattedReserveAmount);
 
     // Update user
     const updatedUser = await User.findByIdAndUpdate(
@@ -1568,7 +1573,7 @@ export const handelReserve = async (req, res) => {
         },
         $push: {
           reserveHistory: {
-            amount: reserveAmount,
+            amount: formattedReserveAmount,
             interestRate: getInterestRateByLevel(userLevel),
             createdAt: now,
             status: "active",
@@ -1594,7 +1599,7 @@ export const handelReserve = async (req, res) => {
           lastReserveTime: updatedUser.lastReserveTime,
           reserveCooldownExpires: updatedUser.reserveCooldownExpires,
         },
-        reserveAmount: reserveAmount,
+        reserveAmount: formattedReserveAmount,
         totalReserve: newReserveAmount,
         cooldownExpires: cooldownExpiry,
         levelLimits: RESERVE_LIMITS[userLevel],
@@ -1750,8 +1755,8 @@ export const handleRedeem = async (req, res) => {
     const currentAvailableBalance = user.availableBalance || 0;
 
     // Calculate new balances
-    const newWalletBalance = currentWalletBalance + interestAmount;
-    const newAvailableBalance = currentAvailableBalance + totalRedeemAmount;
+    const newWalletBalance = formatAmount(currentWalletBalance + interestAmount);
+    const newAvailableBalance = formatAmount(currentAvailableBalance + totalRedeemAmount);
 
     const now = new Date();
     let todaysEarning = user.todaysEarning || 0;
@@ -1764,8 +1769,8 @@ export const handleRedeem = async (req, res) => {
     ) {
       todaysEarning = 0;
     }
-    todaysEarning += interestAmount;
-    const newtotalEarnings = totalEarnings + interestAmount;
+    todaysEarning = formatAmount(todaysEarning + interestAmount);
+    const newtotalEarnings = formatAmount(totalEarnings + interestAmount);
 
     // Update user - reset reserve and add total to both wallet and available balance
     const updatedUser = await User.findByIdAndUpdate(
@@ -1775,8 +1780,8 @@ export const handleRedeem = async (req, res) => {
           walletBalance: newWalletBalance,
           availableBalance: newAvailableBalance, // Update available balance too
           reserve: 0, // Reset reserve to 0
-          todaysEarning: parseFloat(todaysEarning.toFixed(2)),
-          totalEarnings: parseFloat(newtotalEarnings.toFixed(2)),
+          todaysEarning: todaysEarning,
+          totalEarnings: newtotalEarnings,
           lastRedeemAt: now,
           "reserveHistory.$[elem].status": "redeemed",
         },
@@ -1800,11 +1805,11 @@ export const handleRedeem = async (req, res) => {
           _id: updatedUser._id,
           username: updatedUser.username,
           email: updatedUser.email,
-          walletBalance: updatedUser.walletBalance,
-          availableBalance: updatedUser.availableBalance,
-          reserve: updatedUser.reserve,
+          walletBalance: formatAmount(updatedUser.walletBalance),
+          availableBalance: formatAmount(updatedUser.availableBalance),
+          reserve: formatAmount(updatedUser.reserve),
           level: updatedUser.levels,
-          todaysEarning: updatedUser.todaysEarning,
+          todaysEarning: formatAmount(updatedUser.todaysEarning),
           lastRedeemAt: updatedUser.lastRedeemAt,
         },
         redemption: {
@@ -1845,7 +1850,7 @@ export const getTodaysEarning = async (req, res) => {
     }
 
     const now = new Date();
-    let todays = user.todaysEarning || 0;
+    let todays = formatAmount(user.todaysEarning || 0);
     if (
       user.lastRedeemAt &&
       user.lastRedeemAt.toDateString() !== now.toDateString()
