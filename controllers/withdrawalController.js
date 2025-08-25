@@ -544,7 +544,8 @@ const approveWithdrawal = async (req, res) => {
 
         // Check if user still has enough balance
         const currentBalance = user.walletBalance || 0;
-        if (currentBalance < withdrawal.amount) {
+        const currentAvailableBalance = user.availableBalance || 0;
+        if (currentAvailableBalance && currentBalance < withdrawal.amount) {
             return res.status(400).json({
                 success: false,
                 message: `Cannot approve withdrawal. User's current balance ($${currentBalance}) is less than withdrawal amount ($${withdrawal.amount})`
@@ -553,10 +554,12 @@ const approveWithdrawal = async (req, res) => {
 
         // Deduct amount from user's wallet balance & increment sell count
         const newBalance = currentBalance - withdrawal.amount;
+        const newAvailableBalance = currentAvailableBalance - withdrawal.amount;
         const updatedUser = await User.findByIdAndUpdate(
             withdrawal.userId._id,
             {
                 walletBalance: newBalance,
+                availableBalance: newAvailableBalance,
                 $inc: { sell: 1 } // INCREMENT USER'S SELL COUNT
             },
             { new: true }
