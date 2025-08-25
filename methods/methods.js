@@ -43,7 +43,6 @@ export const validateSignupInput = (
   password,
   confirmPassword,
   mobileNo,
-  emailVerificationCode,
   referredByCode // Optional referral code
 ) => {
   const errors = [];

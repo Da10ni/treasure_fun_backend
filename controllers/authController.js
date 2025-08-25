@@ -169,8 +169,8 @@ export const signup = async (req, res) => {
       confirmPassword,
       mobileNo,
       referredByCode,
-      walletId, // TRC-20 wallet
-      BEP, // BEP-20 wallet (matching schema field name)
+      walletId,
+      BEP,
     } = req.body;
 
     // Validate input (remove emailVerificationCode from validation)
@@ -191,13 +191,13 @@ export const signup = async (req, res) => {
       });
     }
 
-    console.log("TRC-20 Wallet:", walletId);
-    console.log("BEP-20 Wallet:", BEP);
-
     // Validate referral code if provided
     let referringUser = null;
     if (referredByCode && referredByCode.trim()) {
-      referringUser = await User.findByReferralCode(referredByCode.trim());
+      referringUser = await User.findOne({
+        referredByCode: referredByCode.trim(),
+      });
+
       if (!referringUser) {
         return res.status(400).json({
           success: false,
@@ -262,16 +262,8 @@ export const signup = async (req, res) => {
         $inc: { referralCount: 1 },
       });
 
-      console.log(`🎯 New referral added for ${referringUser.username}`);
-
       // 🔥 AUTO UPDATE LEVEL - Yahan magic hota hai!
       levelUpdateResult = await autoUpdateUserLevel(referringUser._id);
-
-      if (levelUpdateResult && levelUpdateResult.levelUpdated) {
-        console.log(
-          `🎉 LEVEL UP! ${referringUser.username}: Level ${levelUpdateResult.oldLevel} → ${levelUpdateResult.newLevel}`
-        );
-      }
     }
 
     // Generate token
@@ -312,6 +304,8 @@ export const validateReferralCode = async (req, res) => {
   try {
     const { code } = req.params;
 
+    console.log("check code", code);
+
     if (!code || !/^[A-Z0-9]{8}$/.test(code)) {
       return res.status(400).json({
         success: false,
@@ -319,7 +313,7 @@ export const validateReferralCode = async (req, res) => {
       });
     }
 
-    const user = await User.findByReferralCode(code).select(
+    const user = await User.findOne({ myReferralCode: code }).select(
       "username myReferralCode"
     );
 
@@ -373,9 +367,9 @@ export const getUserReferrals = async (req, res) => {
         referralCount: user.referralCount,
         referredBy: user.referredByUser
           ? {
-            username: user.referredByUser.username,
-            referralCode: user.referredByUser.myReferralCode,
-          }
+              username: user.referredByUser.username,
+              referralCode: user.referredByUser.myReferralCode,
+            }
           : null,
         referredUsers: user.referredUsers,
       },
@@ -482,9 +476,9 @@ export const getAllUsers = async (req, res) => {
       referralCount: user.referredUsers.length,
       referredBy: user.referredByUser
         ? {
-          username: user.referredByUser.username,
-          referralCode: user.referredByUser.myReferralCode,
-        }
+            username: user.referredByUser.username,
+            referralCode: user.referredByUser.myReferralCode,
+          }
         : null,
     }));
 
@@ -580,95 +574,6 @@ export const logout = async (req, res) => {
     });
   }
 };
-
-// Update user profile
-// export const updateProfile = async (req, res) => {
-//   try {
-//     const { username, mobileNo, walletId, BEP, email, bankName } = req.body;
-//     const userId = req.userId;
-
-//     // Input Validation
-//     const errors = [];
-//     if (username) {
-//       if (username.length < 3 || username.length > 20) {
-//         errors.push({
-//           field: "username",
-//           message: "Username must be between 3 and 20 characters",
-//         });
-//       }
-//       if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-//         errors.push({
-//           field: "username",
-//           message:
-//             "Username can only contain letters, numbers, and underscores",
-//         });
-//       }
-//     }
-//     if (mobileNo && !/^[0-9]{10,15}$/.test(mobileNo)) {
-//       errors.push({
-//         field: "mobileNo",
-//         message: "Please enter a valid mobile number (10–15 digits)",
-//       });
-//     }
-//     if (errors.length > 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Validation failed",
-//         errors,
-//       });
-//     }
-
-//     // Check if username or mobile number already exists (excluding current user)
-//     const existingUser = await User.findOne({
-//       _id: { $ne: userId },
-//       $or: [
-//         ...(username ? [{ username }] : []),
-//         ...(mobileNo ? [{ mobileNo }] : []),
-//       ],
-//     });
-
-//     if (existingUser) {
-//       return res.status(409).json({
-//         success: false,
-//         message: "Username or mobile number already exists",
-//       });
-//     }
-
-//     // Prepare update object
-//     const updateData = {};
-//     if (username) updateData.username = username.trim();
-//     if (email) updateData.email = email.trim();
-//     if (mobileNo) updateData.mobileNo = mobileNo.trim();
-//     if (walletId) updateData.walletId = walletId.trim(); // TRC-20
-//     if (BEP) updateData.BEP = BEP.trim(); // BEP-20
-//     if (bankName) updateData.bankName = bankName.trim();
-
-//     // 🔥 NEW: Set freeze status and timestamp
-//     updateData.isFreezed = true;
-//     updateData.freezeTimestamp = new Date(); // Store when freeze started
-
-//     // Update user document
-//     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
-//       new: true,
-//       runValidators: true,
-//     });
-
-//     return res.status(200).json({
-//       success: true,
-//       message:
-//         "Profile updated successfully. Withdrawals disabled for 72 hours.",
-//       data: {
-//         user: updatedUser.toJSON(),
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Update profile error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal server error",
-//     });
-//   }
-// };
 
 export const updateProfile = async (req, res) => {
   try {
@@ -1557,9 +1462,13 @@ export const handelReserve = async (req, res) => {
 
     // Calculate new reserve amount and cooldown expiry
     const currentReserve = user.reserve || 0;
-    const newReserveAmount = formatAmount(currentReserve + formattedReserveAmount);
+    const newReserveAmount = formatAmount(
+      currentReserve + formattedReserveAmount
+    );
     const cooldownExpiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
-    const availableBalance = formatAmount(currentAvailableBalance - formattedReserveAmount);
+    const availableBalance = formatAmount(
+      currentAvailableBalance - formattedReserveAmount
+    );
 
     // Update user
     const updatedUser = await User.findByIdAndUpdate(
@@ -1755,8 +1664,12 @@ export const handleRedeem = async (req, res) => {
     const currentAvailableBalance = user.availableBalance || 0;
 
     // Calculate new balances
-    const newWalletBalance = formatAmount(currentWalletBalance + interestAmount);
-    const newAvailableBalance = formatAmount(currentAvailableBalance + totalRedeemAmount);
+    const newWalletBalance = formatAmount(
+      currentWalletBalance + interestAmount
+    );
+    const newAvailableBalance = formatAmount(
+      currentAvailableBalance + totalRedeemAmount
+    );
 
     const now = new Date();
     let todaysEarning = user.todaysEarning || 0;
@@ -1788,11 +1701,11 @@ export const handleRedeem = async (req, res) => {
         $unset: {
           lastReserveTime: "",
           reserveCooldownExpires: "",
-        }
+        },
       },
       {
         arrayFilters: [{ "elem.status": "active" }],
-        new: true
+        new: true,
       }
     );
 
@@ -1909,7 +1822,9 @@ export const getReserveHistory = async (req, res) => {
     const { userId } = req.params;
     const user = await User.findById(userId).select("reserveHistory");
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     res.status(200).json({
