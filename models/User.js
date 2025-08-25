@@ -542,7 +542,17 @@ const userSchema = new mongoose.Schema(
     },
     totalStaked: { type: Number, default: 0 },
     todaysEarning: { type: Number, default: 0 },
+    totalEarnings: { type: Number, default: 0 },
     lastRedeemAt: { type: Date, default: null },
+    reserveHistory: [
+      {
+        amount: { type: Number, required: true },
+        interestRate: { type: Number },
+        createdAt: { type: Date, default: Date.now },
+        status: { type: String, enum: ["active", "redeemed"], default: "active" },
+        level: { type: Number },
+      }
+    ]
   },
   {
     timestamps: true,

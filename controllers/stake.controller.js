@@ -1,5 +1,6 @@
-import { productModel } from "../models/Product";
-import User from "../models/User";
+import { productModel } from "../models/Product.js";
+import { Stake, StakeReturn } from "../models/stake.model.js";
+import User from "../models/User.js";
 
 export const handleStake = async (req, res) => {
   try {
@@ -186,7 +187,6 @@ export const handleStake = async (req, res) => {
   }
 };
 
-// ✅ UPDATED: Helper function to process mature stakes
 export const processMaturedStakes = async () => {
   try {
     const currentDate = new Date();
@@ -208,6 +208,12 @@ export const processMaturedStakes = async () => {
           continue;
         }
 
+        const netProfit =
+          Number(returnRecord.profitAmount) - Number(returnRecord.handlingFee);
+
+        user.walletBalance =
+          Number(user.walletBalance || 0) + netProfit;
+
         // Add total return to user's available balance
         user.availableBalance =
           Number(user.availableBalance) +
@@ -225,10 +231,18 @@ export const processMaturedStakes = async () => {
         if (!user.totalEarnings) {
           user.totalEarnings = 0;
         }
+
+        if (!user.todaysEarning) {
+          user.todaysEarning = 0;
+        }
+
         user.totalEarnings =
           Number(user.totalEarnings) +
           Number(returnRecord.profitAmount) -
           Number(returnRecord.handlingFee);
+
+        user.todaysEarning =
+          Number(user.todaysEarning) + netProfit
 
         await user.save();
 
@@ -262,5 +276,62 @@ export const processMaturedStakes = async () => {
   } catch (error) {
     console.error("❌ Error processing matured stakes:", error);
     return { success: false, error: error.message };
+  }
+};
+
+export const getUserStakes = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    const stakes = await Stake.find({ userId })
+      .populate("productId") // show full product details
+      .sort({ createdAt: -1 }); // latest first
+
+    return res.status(200).json({
+      success: true,
+      count: stakes.length,
+      data: stakes,
+    });
+  } catch (error) {
+    console.error("Get user stakes error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const getAllStakes = async (req, res) => {
+  try {
+    const { status } = req.query; // optional filter ?status=active
+
+    let filter = {};
+    if (status) {
+      filter.status = status;
+    }
+
+    const stakes = await Stake.find(filter)
+      .populate("userId", "name email availableBalance")
+      .populate("productId", "title income duration handlingFee status")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: stakes.length,
+      data: stakes,
+    });
+  } catch (error) {
+    console.error("Get all stakes error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };

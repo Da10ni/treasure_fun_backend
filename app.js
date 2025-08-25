@@ -10,6 +10,7 @@ import withdrawalRoutes from "./routes/withdrawal.js";
 import referralsRoutes from "./routes/referral.js";
 import heroImageRoutes from "./routes/heroImage.js";
 import notificationRoutes from "./routes/notification.js";
+import stakesRoutes from "./routes/stake.js";
 import cron from "node-cron";
 import { checkAndUnfreezeUsers } from "./controllers/authController.js";
 import { triggerDailyIncomeManually } from "./services/cronJops.js";
@@ -57,7 +58,13 @@ app.use((req, res, next) => {
   next();
 });
 
-cron.schedule("0 * * * *", () => {
+// cron.schedule("0 * * * *", () => {
+//   console.log("Checking for matured stakes...");
+//   processMaturedStakes();
+// });
+
+// every 10 seconds
+cron.schedule("*/10 * * * * *", () => {
   console.log("Checking for matured stakes...");
   processMaturedStakes();
 });
@@ -93,6 +100,7 @@ mongoose.connection.on("error", (error) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/stake", stakesRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/deposits", depositRoutes);

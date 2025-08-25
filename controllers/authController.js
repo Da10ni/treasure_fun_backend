@@ -369,9 +369,9 @@ export const getUserReferrals = async (req, res) => {
         referralCount: user.referralCount,
         referredBy: user.referredByUser
           ? {
-              username: user.referredByUser.username,
-              referralCode: user.referredByUser.myReferralCode,
-            }
+            username: user.referredByUser.username,
+            referralCode: user.referredByUser.myReferralCode,
+          }
           : null,
         referredUsers: user.referredUsers,
       },
@@ -478,9 +478,9 @@ export const getAllUsers = async (req, res) => {
       referralCount: user.referredUsers.length,
       referredBy: user.referredByUser
         ? {
-            username: user.referredByUser.username,
-            referralCode: user.referredByUser.myReferralCode,
-          }
+          username: user.referredByUser.username,
+          referralCode: user.referredByUser.myReferralCode,
+        }
         : null,
     }));
 
@@ -1527,7 +1527,8 @@ export const handelReserve = async (req, res) => {
 
     // Check wallet balance
     const walletBalance = user.walletBalance || 0;
-    if (reserveAmount > walletBalance) {
+    const currentAvailableBalance = user.availableBalance || 0;
+    if (reserveAmount > currentAvailableBalance) {
       return res.status(400).json({
         success: false,
         message: "Insufficient wallet balance",
@@ -1553,7 +1554,7 @@ export const handelReserve = async (req, res) => {
     const currentReserve = user.reserve || 0;
     const newReserveAmount = currentReserve + parseFloat(reserveAmount);
     const cooldownExpiry = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
-    const availableBalance = walletBalance - newReserveAmount;
+    const availableBalance = currentAvailableBalance - reserveAmount;
 
     // Update user
     const updatedUser = await User.findByIdAndUpdate(
@@ -1564,6 +1565,15 @@ export const handelReserve = async (req, res) => {
           availableBalance: availableBalance,
           lastReserveTime: now,
           reserveCooldownExpires: cooldownExpiry,
+        },
+        $push: {
+          reserveHistory: {
+            amount: reserveAmount,
+            interestRate: getInterestRateByLevel(userLevel),
+            createdAt: now,
+            status: "active",
+            level: userLevel,
+          },
         },
       },
       { new: true }
@@ -1733,7 +1743,7 @@ export const handleRedeem = async (req, res) => {
 
     // Calculate interest
     const interestAmount = (reservedAmount * interestRate) / 100;
-    // const totalRedeemAmount = reservedAmount + interestAmount;
+    const totalRedeemAmount = reservedAmount + interestAmount;
 
     // Get current balances
     const currentWalletBalance = user.walletBalance || 0;
@@ -1741,10 +1751,11 @@ export const handleRedeem = async (req, res) => {
 
     // Calculate new balances
     const newWalletBalance = currentWalletBalance + interestAmount;
-    // const newAvailableBalance = currentAvailableBalance + totalRedeemAmount;
+    const newAvailableBalance = currentAvailableBalance + totalRedeemAmount;
 
     const now = new Date();
     let todaysEarning = user.todaysEarning || 0;
+    const totalEarnings = user.totalEarnings || 0;
 
     // reset if different day
     if (
@@ -1754,6 +1765,7 @@ export const handleRedeem = async (req, res) => {
       todaysEarning = 0;
     }
     todaysEarning += interestAmount;
+    const newtotalEarnings = totalEarnings + interestAmount;
 
     // Update user - reset reserve and add total to both wallet and available balance
     const updatedUser = await User.findByIdAndUpdate(
@@ -1761,17 +1773,22 @@ export const handleRedeem = async (req, res) => {
       {
         $set: {
           walletBalance: newWalletBalance,
-          // availableBalance: newAvailableBalance, // Update available balance too
+          availableBalance: newAvailableBalance, // Update available balance too
           reserve: 0, // Reset reserve to 0
           todaysEarning: parseFloat(todaysEarning.toFixed(2)),
+          totalEarnings: parseFloat(newtotalEarnings.toFixed(2)),
           lastRedeemAt: now,
+          "reserveHistory.$[elem].status": "redeemed",
         },
         $unset: {
           lastReserveTime: "",
           reserveCooldownExpires: "",
-        },
+        }
       },
-      { new: true }
+      {
+        arrayFilters: [{ "elem.status": "active" }],
+        new: true
+      }
     );
 
     res.status(200).json({
@@ -1798,7 +1815,7 @@ export const handleRedeem = async (req, res) => {
           previousWalletBalance: currentWalletBalance,
           previousAvailableBalance: currentAvailableBalance,
           newWalletBalance: parseFloat(newWalletBalance.toFixed(2)),
-          // newAvailableBalance: parseFloat(newAvailableBalance.toFixed(2)),
+          newAvailableBalance: parseFloat(newAvailableBalance.toFixed(2)),
         },
       },
     });
@@ -1879,5 +1896,23 @@ export const getNetworkImages = async (req, res) => {
       message: "Internal server error",
       error: process.env.NODE_ENV === "development" ? e.message : undefined,
     });
+  }
+};
+
+export const getReserveHistory = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId).select("reserveHistory");
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user.reserveHistory || [],
+    });
+  } catch (error) {
+    console.error("❌ Get reserve history error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };

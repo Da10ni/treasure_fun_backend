@@ -70,4 +70,4 @@ const StakeReturn =
   mongoose.models.StakeReturn ||
   mongoose.model("StakeReturn", stakeReturnSchema);
 
-export { Product, Stake, StakeReturn };
+export { Stake, StakeReturn };

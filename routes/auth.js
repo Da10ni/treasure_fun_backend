@@ -88,7 +88,6 @@ router.post("/password/change", authenticateUser, changePassword); // User - Cha
 router.get("/today-earnings/:userId", authenticateUser, getTodaysEarning);
 router.get('/networks', authenticateUser, getNetworkImages);
 
-router.post('/stakes/create', authenticateUser, handleStake);
 
 // =============================================
 // ADMIN-ONLY ROUTES (authenticateAdmin)
