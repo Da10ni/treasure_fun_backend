@@ -58,16 +58,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// cron.schedule("0 * * * *", () => {
-//   console.log("Checking for matured stakes...");
-//   processMaturedStakes();
-// });
-
-// every 10 seconds
-cron.schedule("*/10 * * * * *", () => {
+cron.schedule("0 * * * *", () => {
   console.log("Checking for matured stakes...");
   processMaturedStakes();
 });
+
+// every 10 seconds
+// cron.schedule("*/10 * * * * *", () => {
+//   console.log("Checking for matured stakes...");
+//   processMaturedStakes();
+// });
 
 // Connect to MongoDB
 const connectDB = async () => {
