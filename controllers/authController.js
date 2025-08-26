@@ -195,7 +195,7 @@ export const signup = async (req, res) => {
     let referringUser = null;
     if (referredByCode && referredByCode.trim()) {
       referringUser = await User.findOne({
-        referredByCode: referredByCode.trim(),
+        myReferralCode: referredByCode.trim(),
       });
 
       if (!referringUser) {
