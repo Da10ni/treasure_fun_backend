@@ -362,8 +362,6 @@ export const getUserReferrals = async (req, res) => {
 
     const referredBy = await User.findById(user.referredByUser);
 
-    console.log("check referred user ====>", referredBy);
-
     res.json({
       success: true,
       data: {
