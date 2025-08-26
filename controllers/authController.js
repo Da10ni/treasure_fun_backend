@@ -360,6 +360,10 @@ export const getUserReferrals = async (req, res) => {
       });
     }
 
+    const referredBy = await User.findById(user.referredByUser);
+
+    console.log("check referred user ====>", referredBy);
+
     res.json({
       success: true,
       data: {
@@ -367,8 +371,8 @@ export const getUserReferrals = async (req, res) => {
         referralCount: user.referralCount,
         referredBy: user.referredByUser
           ? {
-              username: user.referredByUser.username,
-              referralCode: user.referredByUser.myReferralCode,
+              username: referredBy.username,
+              referralCode: referredBy.myReferralCode,
             }
           : null,
         referredUsers: user.referredUsers,
