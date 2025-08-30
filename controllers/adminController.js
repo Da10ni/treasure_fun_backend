@@ -528,7 +528,7 @@ const getActiveUsers = async (_, res) => {
     if (activeUsers.length === 0) {
       return res.status(404).json({
         message: "No active users found",
-        success: false,
+        success: true,
       });
     }
 

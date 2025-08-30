@@ -146,7 +146,7 @@ const getVideo = async (req, res) => {
       .populate("userId", "name email")
       .sort({ createdAt: -1 });
 
-    if (!video) {
+    if (!video?.video) {
       return res.status(404).json({
         message: "No video found",
         success: false,
@@ -156,7 +156,7 @@ const getVideo = async (req, res) => {
     return res.status(200).json({
       message: "Video fetched successfully",
       success: true,
-      data: video,
+      data: video?.video,
     });
   } catch (error) {
     return res.status(500).json({
