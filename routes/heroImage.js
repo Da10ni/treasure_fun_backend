@@ -15,8 +15,9 @@ const routes = Router();
 routes
   .route("/create-image")
   .post(authenticateAdmin, upload.single("heroImage"), createHeroImage);
-  routes
-  .route("/create-video").post(authenticateAdmin, upload.single("video"), createVideo);
+routes
+  .route("/create-video")
+  .post(authenticateAdmin, upload.single("video"), createVideo);
 routes.route("/get-image").get(getHeroImage);
 routes.route("/get-video").get(getVideo);
 routes.route("/delete-image/:id").delete(authenticateAdmin, deleteHeroImage);
